@@ -87,3 +87,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+experts/modular_rl
+experts/expert_rollouts*
