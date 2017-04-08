@@ -12,4 +12,4 @@ KERAS_BACKEND=theano python2 run_pg.py --gamma=0.995 --lam=0.97 --agent=modular_
 
 # To get expert rollouts
 # cd ..
-PYTHONPATH=$PYTHONPATH:./modular_rl/ KERAS_BACKEND=theano python2 generate_rollouts.py ./CartPole-v0.h5 20
+PYTHONPATH=$PYTHONPATH:./modular_rl/ KERAS_BACKEND=theano python2 ./generate_rollouts.py ./CartPole-v0.h5 20
