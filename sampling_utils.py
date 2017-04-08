@@ -1,4 +1,6 @@
-
+import pickle
+from rllab.misc import tensor_utils
+import numpy as np
 
 def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200):
     """
@@ -7,11 +9,14 @@ def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200)
     """
     paths = []
 
-    for iter_step in range(0, n_trajs):
-        paths.append(rollout_policy(agent=pol, env=env, max_path_length=horizon, reward_extractor=None))
+    for iter_step in range(0, number_of_trajectories):
+        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=None))
 
     return paths
 
+def load_expert_rollouts(filepath):
+    # why encoding? http://stackoverflow.com/questions/11305790/pickle-incompatability-of-numpy-arrays-between-python-2-and-3
+    return pickle.load(open(filepath, "rb"), encoding='latin1')
 
 def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, animated=True, speedup=1):
     """
@@ -24,7 +29,7 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, anima
     rewards = []
     agent_infos = []
     env_infos = []
-    o = env.reset_trial()
+    o = env.reset()
     path_length = 0
 
     if animated:
@@ -50,14 +55,15 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, anima
         else:
             im = env.render(mode='robot')
             im_observations.append(im)
-    if animated:
-        env.render(close=True)
+    # if animated:
+    # env.render(close=True)
 
     im_observations = tensor_utils.stack_tensor_list(im_observations)
 
     observations = tensor_utils.stack_tensor_list(observations)
 
     if reward_extractor is not None:
+        #TODO: remove/replace this
         true_rewards = tensor_utils.stack_tensor_list(rewards)
         obs_pls_three = np.copy(im_observations)
         for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.

@@ -5,11 +5,11 @@ NOTE: taken and modified heavily from https://raw.githubusercontent.com/joschu/m
 """
 
 import argparse
-import cPickle, h5py, numpy as np, time
+import pickle, h5py, numpy as np, time
 from collections import defaultdict
 import gym
 
-def animate_rollout(env, agent, n_timesteps,delay=.01):
+def animate_rollout(env, agent, n_timesteps, collect_images=False, delay=.01):
     infos = defaultdict(list)
     ob = env.reset()
     if hasattr(agent,"reset"): agent.reset()
@@ -33,8 +33,9 @@ def animate_rollout(env, agent, n_timesteps,delay=.01):
         infos['ob'].append(ob)
         infos['reward'].append(rew)
         infos['action'].append(a)
-        infos['pixels'].append(pixel_array)
-        time.sleep(delay)
+        if collect_images:
+            infos['pixels'].append(pixel_array)
+        # time.sleep(delay)
     return infos
 
 def main():
@@ -42,13 +43,14 @@ def main():
     parser.add_argument("hdf")
     parser.add_argument("--timestep_limit",type=int)
     parser.add_argument("--snapname")
+    parser.add_argument("--collect_images", action='store_true')
     parser.add_argument("num_rollouts", type=int)
     args = parser.parse_args()
 
     hdf = h5py.File(args.hdf,'r')
 
     snapnames = hdf['agent_snapshots'].keys()
-    print "snapshots:\n",snapnames
+    print("snapshots:\n",snapnames)
     if args.snapname is None:
         snapname = snapnames[-1]
     elif args.snapname not in snapnames:
@@ -58,7 +60,7 @@ def main():
 
     env = gym.make(hdf["env_id"].value)
 
-    agent = cPickle.loads(hdf['agent_snapshots'][snapname].value)
+    agent = pickle.loads(hdf['agent_snapshots'][snapname].value)
     agent.stochastic=False
 
     timestep_limit = args.timestep_limit or env.spec.timestep_limit
@@ -67,11 +69,11 @@ def main():
     rollouts = []
     for i in range(args.num_rollouts):
         infos = animate_rollout(env,agent,n_timesteps=timestep_limit,
-            delay=1.0/env.metadata.get('video.frames_per_second', 30))
+            delay=1.0/env.metadata.get('video.frames_per_second', 30), collect_images=args.collect_images)
         rollouts.append(infos)
         # raw_input("press enter to continue")
 
-    cPickle.dump(rollouts, open("expert_rollouts_%s.o"%args.hdf.split("/")[-1], "w"))
+    pickle.dump(rollouts, open("expert_rollouts_%s.o"%args.hdf.split("/")[-1], "w"))
 
 if __name__ == "__main__":
     main()
