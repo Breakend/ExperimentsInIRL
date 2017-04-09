@@ -1,5 +1,6 @@
 from sampling_utils import *
 from rllab.sampler.base import BaseSampler
+from rllab.misc import tensor_utils
 
 class Trainer(object):
 
@@ -26,17 +27,24 @@ class Trainer(object):
         # collect samples for novice policy
         # TODO: use cost to get rewards based on current cost, that is the rewards returned as part of the Rollouts
         #       will be from the cost function
-        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=len(expert_rollouts), env=self.env, horizon=expert_horizon)
+        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=len(expert_rollouts), env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator)
 
+        # if we're using
         if self.cost_trainer:
-            self.cost_trainer.train_cost(novice_rollouts, expert_rollouts, number_epochs=2)
+
+            # Novice rollouts gets all the rewards, etc. used for policy optimization, for the cost function we just want to use the observations.
+            # use "observations for the observations/states provided by the env, use "im_observations" to use the pixels (if available)
+            novice_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in novice_rollouts])
+            expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
+
+            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2)
 
         # This does things like calculate advantages and entropy, etc.
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
         # for optimizing the trajectories
         policy_training_samples = self.sampler.process_samples(itr=self.iteration, paths=novice_rollouts)
 
-        #optimize the novice policy by one step
+        # optimize the novice policy by one step
         self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
 
         self.iteration += 1

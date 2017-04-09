@@ -59,95 +59,6 @@ def jacobian(y, x):
     assert_shape(jac, [dY, dX])
     return jac
 
-def construct_nn_cost_net_tf(num_hidden=3, dim_hidden=42, dim_input=27, T=100,
-                             demo_batch_size=5, sample_batch_size=5, phase=None, ioc_loss='ICML',
-                             Nq=1, smooth_reg_weight=0.0, mono_reg_weight=0.0, gp_reg_weight=0.0,
-                             multi_obj_supervised_wt=1.0, learn_wu=False, x_idx=None, img_idx=None,
-                             num_filters=[15,15,15]):
-    """ Construct cost net (with images and robot config).
-    Args:
-        ...
-        if with images, x_idx is required, and should indicate the indices corresponding to the robot config
-        if with images, img_idx is required, and should indicate the indices corresponding to the imagej
-    """
-
-    inputs = {}
-    inputs['expert_observations'] = expert_observations = tf.placeholder(tf.float32, shape=(demo_batch_size, T, dim_input))
-    inputs['expert_actions'] = expert_actions = tf.placeholder(tf.float32, shape=(demo_batch_size, T, 1))
-
-    # inputs['demo_iw'] = demo_imp_weight = tf.placeholder(tf.float32, shape=(demo_batch_size, 1))
-    inputs['novice_observations'] = novice_observations = tf.placeholder(tf.float32, shape=(sample_batch_size, T, dim_input))
-    inputs['novice_actions'] = novice_actions = tf.placeholder(tf.float32, shape=(sample_batch_size, T, 1))
-    # inputs['sample_iw'] = sample_imp_weight = tf.placeholder(tf.float32, shape=(sample_batch_size, 1))
-
-    # Inputs for single eval test runs
-    inputs['test_obs'] = test_obs = tf.placeholder(tf.float32, shape=(T, dim_input), name='test_obs')
-    inputs['test_torque_norm'] = test_torque_norm = tf.placeholder(tf.float32, shape=(T, 1), name='test_torque_u')
-
-    inputs['test_obs_single'] = test_obs_single = tf.placeholder(tf.float32, shape=(dim_input), name='test_obs_single')
-    inputs['test_torque_single'] = test_torque_single = tf.placeholder(tf.float32, shape=(1), name='test_torque_u_single')
-
-    _, test_cost  = nn_forward(test_obs, test_torque_norm, num_hidden=num_hidden, learn_wu=learn_wu, dim_hidden=dim_hidden)
-    expert_cost_preu, expert_costs = nn_forward(expert_observations, expert_actions, num_hidden=num_hidden, learn_wu=learn_wu, dim_hidden=dim_hidden)
-    sample_cost_preu, sample_costs = nn_forward(novice_observations, novice_actions, num_hidden=num_hidden,learn_wu=learn_wu, dim_hidden=dim_hidden)
-
-    # Build a differentiable test cost by feeding each timestep individually
-    test_obs_single = tf.expand_dims(test_obs_single, 0)
-    test_torque_single = tf.expand_dims(test_torque_single, 0)
-    test_feat_single = compute_feats(test_obs_single, num_hidden=num_hidden, dim_hidden=dim_hidden)
-    test_cost_single_preu, _ = nn_forward(test_obs_single, test_torque_single, num_hidden=num_hidden, dim_hidden=dim_hidden, learn_wu=learn_wu)
-    test_cost_single = tf.squeeze(test_cost_single_preu)
-
-    expert_sample_preu = tf.concat(0, [expert_cost_preu, sample_cost_preu])
-    sample_demo_size = sample_batch_size+demo_batch_size
-    assert_shape(expert_sample_preu, [sample_demo_size, T, 1])
-    costs_prev = tf.slice(expert_sample_preu, begin=[0, 0,0], size=[sample_demo_size, T-2, -1])
-    costs_next = tf.slice(expert_sample_preu, begin=[0, 2,0], size=[sample_demo_size, T-2, -1])
-    costs_cur = tf.slice(expert_sample_preu, begin=[0, 1,0], size=[sample_demo_size, T-2, -1])
-    # cur-prev
-    slope_prev = costs_cur-costs_prev
-    # next-cur
-    slope_next = costs_next-costs_cur
-
-    if smooth_reg_weight > 0:
-        # regularization
-        """
-        """
-        raise NotImplementedError("Smoothness reg not implemented")
-
-    if mono_reg_weight > 0:
-        demo_slope = tf.slice(slope_next, begin=[0,0,0], size=[demo_batch_size, -1, -1])
-        slope_reshape = tf.reshape(demo_slope, shape=[-1,1])
-        mono_reg = l2_mono_loss(slope_reshape)*mono_reg_weight
-    else:
-        mono_reg = 0
-
-    # init logZ or Z to 1, only learn the bias
-    # (also might be good to reduce lr on bias)
-    # logZ = safe_get('Wdummy', initializer=tf.ones(1))
-    # Z = tf.exp(logZ)
-
-    # TODO: removed importance weighting for now
-    ioc_loss = icml_loss(expert_costs, sample_costs)
-    # ioc_loss = icml_loss(expert_costs, sample_costs, demo_imp_weight, sample_imp_weight, Z)
-    ioc_loss += mono_reg
-
-    outputs = {
-        'multiobj_loss': sup_loss+ioc_loss,
-        'sup_loss': sup_loss,
-        'ioc_loss': ioc_loss,
-        'test_loss': test_cost,
-        'test_loss_single': test_cost_single,
-        'test_feat_single': test_feat_single,
-    }
-
-    if x_idx is not None:
-        outputs['test_imgfeat'] = test_imgfeat
-        outputs['test_X_single'] = test_X_single
-
-    return inputs, outputs
-
-
 def compute_feats(net_input, num_hidden=1, dim_hidden=42):
     len_shape = len(net_input.get_shape())
     if  len_shape == 3:
@@ -178,9 +89,9 @@ def compute_feats(net_input, num_hidden=1, dim_hidden=42):
 
     return feat
 
-def nn_forward(net_input, u_input, num_hidden=1, dim_hidden=42, learn_wu=False):
+def nn_forward(net_input, num_hidden=1, dim_hidden=42, learn_wu=False):
     # Reshape into 2D matrix for matmuls
-    u_input = tf.reshape(u_input, [-1, 1])
+    # u_input = tf.reshape(u_input, [-1, 1])
 
     feat = compute_feats(net_input, num_hidden=num_hidden, dim_hidden=dim_hidden)
     feat = tf.reshape(feat, [-1, dim_hidden])
@@ -194,9 +105,9 @@ def nn_forward(net_input, u_input, num_hidden=1, dim_hidden=42, learn_wu=False):
         AxAx = Ax*Ax
 
         # Calculate torque penalty
-        u_penalty = safe_get('wu', initializer=tf.constant(1.0), trainable=learn_wu)
-        assert_shape(u_penalty, [])
-        u_cost = u_input*u_penalty
+        # u_penalty = safe_get('wu', initializer=tf.constant(1.0), trainable=learn_wu)
+        # assert_shape(u_penalty, [])
+        # u_cost = u_input*u_penalty
 
     # Reshape result back into batches
     input_shape = net_input.get_shape()
@@ -204,12 +115,12 @@ def nn_forward(net_input, u_input, num_hidden=1, dim_hidden=42, learn_wu=False):
         batch_size, T, dinput = input_shape
         batch_size, T = batch_size.value, T.value
         AxAx = tf.reshape(AxAx, [batch_size, T, dim_hidden])
-        u_cost = tf.reshape(u_cost, [batch_size, T, 1])
+        # u_cost = tf.reshape(u_cost, [batch_size, T, 1])
     elif len(input_shape) == 2:
         AxAx = tf.reshape(AxAx, [-1, dim_hidden])
-        u_cost = tf.reshape(u_cost, [-1, 1])
+        # u_cost = tf.reshape(u_cost, [-1, 1])
     all_costs_preu = tf.reduce_sum(AxAx, reduction_indices=[-1], keep_dims=True)
-    all_costs = all_costs_preu + u_cost
+    all_costs = all_costs_preu #+ u_cost
     return all_costs_preu, all_costs
 
 def conv2d(img, w, b, strides=[1, 1, 1, 1]):
@@ -227,12 +138,12 @@ def icml_loss(expert_costs, sample_costs):
     sc = 0.5*tf.reduce_sum(sample_costs, reduction_indices=[1,2])# + tf.reduce_sum(s_log_iw, reduction_indices=[1])
     assert_shape(sc, [num_samples])
 
-    dc_sc = tf.concat(0, [-dc, -sc])
+    dc_sc = tf.concat(axis=0, values=[-dc, -sc])
 
     loss = tf.reduce_mean(demo_reduced)
 
     # Concatenate demos and samples to approximate partition function
-    partition_samples = tf.concat(0, [expert_costs, sample_costs])
+    partition_samples = tf.concat(axis=0, values=[expert_costs, sample_costs])
     #partition_iw = tf.concat(0, [d_log_iw, s_log_iw])
     partition = 0.5*tf.reduce_sum(partition_samples, reduction_indices=[1,2]) #+tf.reduce_sum(partition_iw, reduction_indices=[1])
     assert_shape(partition, [num_samples+num_demos])

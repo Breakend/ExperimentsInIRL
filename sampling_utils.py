@@ -2,7 +2,29 @@ import pickle
 from rllab.misc import tensor_utils
 import numpy as np
 
-def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200):
+
+class GpsBatchSampler(object):
+    """ Samples data, from GPS code TODO """
+    def __init__(self, data, batch_dim=0):
+        self.data = data
+        self.batch_dim = batch_dim
+
+        # Check that all data has same size on batch_dim
+        self.num_data = data[0].shape[batch_dim]
+        for d in data:
+            assert d.shape[batch_dim] == self.num_data, "Bad shape on axis %d: %s, (expected %d)" % \
+                                                        (batch_dim, str(d.shape), self.num_data)
+
+    def with_replacement(self, batch_size=10):
+        while True:
+            batch_idx = np.random.randint(0, self.num_data, size=batch_size)
+            batch = [data[batch_idx] for data in self.data]
+            yield batch
+
+    def iterate(self, batch_size=10, epochs=float('inf'), shuffle=True):
+        raise NotImplementedError()
+
+def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200, reward_extractor=None):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
     Generate a sampling dataset for a given number of rollouts
@@ -10,7 +32,7 @@ def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200)
     paths = []
 
     for iter_step in range(0, number_of_trajectories):
-        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=None))
+        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=reward_extractor))
 
     return paths
 
@@ -18,7 +40,7 @@ def load_expert_rollouts(filepath):
     # why encoding? http://stackoverflow.com/questions/11305790/pickle-incompatability-of-numpy-arrays-between-python-2-and-3
     return pickle.load(open(filepath, "rb"), encoding='latin1')
 
-def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, animated=True, speedup=1):
+def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
     Generate a rollout for a given policy
@@ -32,10 +54,7 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, anima
     o = env.reset()
     path_length = 0
 
-    if animated:
-        env.render()
-    else:
-        env.render(mode='robot')
+    env.render()
 
     while path_length < max_path_length:
         a, agent_info = agent.get_action(o)
@@ -49,12 +68,15 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, anima
         if d:
             break
         o = next_o
-        if animated:
-            im = env.render()
-            im_observations.append(im)
-        else:
-            im = env.render(mode='robot')
-            im_observations.append(im)
+        if get_image_observations:
+            pixel_array = env.render(mode="rgb_array")
+            if pixel_array is None:
+                # Not convinced that behaviour works for all environments, so until
+                # such a time as I'm convinced of this, drop into a debug shell
+                print("Problem! Couldn't get pixels! Dropping into debug shell.")
+                import pdb; pdb.set_trace()
+            im_observations.append(pixel_array)
+
     # if animated:
     # env.render(close=True)
 
@@ -65,11 +87,11 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, anima
     if reward_extractor is not None:
         #TODO: remove/replace this
         true_rewards = tensor_utils.stack_tensor_list(rewards)
-        obs_pls_three = np.copy(im_observations)
-        for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.
-            idx_plus_three = min(iter_step+3, obs_pls_three.shape[0]-1)
-            obs_pls_three[iter_step, :, :, :] = im_observations[idx_plus_three, :, :, :]
-        rewards = reward_extractor.get_reward(data=[im_observations, obs_pls_three], softmax=True)[:, 0]  # this is the prob of being an expert.
+        # obs_pls_three = np.copy(im_observations)
+        # for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.
+        #     idx_plus_three = min(iter_step+3, obs_pls_three.shape[0]-1)
+        #     obs_pls_three[iter_step, :, :, :] = im_observations[idx_plus_three, :, :, :]
+        rewards = reward_extractor.get_reward(observations)#[:, 0]  # this is the prob of being an expert.
     else:
         rewards = tensor_utils.stack_tensor_list(rewards)
         true_rewards = rewards
