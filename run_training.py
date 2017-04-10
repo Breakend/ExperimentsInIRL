@@ -63,7 +63,7 @@ with tf.Session() as sess:
     trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo)
     sess.run(tf.initialize_all_variables())
 
-    iterations = 10
+    iterations = 300
 
     for iter_step in range(0, iterations):
         trainer.step(expert_rollouts=expert_rollouts)

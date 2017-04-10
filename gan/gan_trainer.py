@@ -18,6 +18,7 @@ class GANCostTrainer(object):
         for iter_step in range(0, epochs):
             batch_losses = []
             lab_acc = []
+            # import pdb; pdb.set_trace()
             for batch_step in range(0, data.shape[0], batch_size):
 
                 data_batch = data[batch_step: batch_step+batch_size]
@@ -45,9 +46,10 @@ class GANCostTrainer(object):
         e_10 = np.zeros((2,))
         e_10[0] = 1
         e_01 = np.zeros((2,))
-        e_01[0] = 1
+        e_01[1] = 1
         expert_classes = np.tile(e_10, (n_trajs, horizon, 1))
         novice_classes = np.tile(e_01, (n_trajs, horizon, 1))
+        # import pdb; pdb.set_trace()
         classes = np.vstack([expert_classes, novice_classes])
         # domains = np.vstack([expert_data['domains'], on_policy_data['domains'], expert_fail_data['domains']])
 
