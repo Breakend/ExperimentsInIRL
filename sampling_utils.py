@@ -40,7 +40,7 @@ def load_expert_rollouts(filepath):
     # why encoding? http://stackoverflow.com/questions/11305790/pickle-incompatability-of-numpy-arrays-between-python-2-and-3
     return pickle.load(open(filepath, "rb"), encoding='latin1')
 
-def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False):
+def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False, num_frames=4):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
     Generate a rollout for a given policy
@@ -65,8 +65,8 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
         agent_infos.append(agent_info)
         env_infos.append(env_info)
         path_length += 1
-        if d:
-            break
+        # if d:
+        #     break
         o = next_o
         if get_image_observations:
             pixel_array = env.render(mode="rgb_array")
@@ -87,11 +87,12 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
     if reward_extractor is not None:
         #TODO: remove/replace this
         true_rewards = tensor_utils.stack_tensor_list(rewards)
-        # obs_pls_three = np.copy(im_observations)
-        # for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.
-        #     idx_plus_three = min(iter_step+3, obs_pls_three.shape[0]-1)
-        #     obs_pls_three[iter_step, :, :, :] = im_observations[idx_plus_three, :, :, :]
-        rewards = reward_extractor.get_reward(observations)#[:, 0]  # this is the prob of being an expert.
+        obs_pls_three = np.zeros((observations.shape[0], num_frames, observations.shape[1]))
+        for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.
+            for i in range(num_frames):
+                idx_plus_three = min(iter_step+num_frames, obs_pls_three.shape[0]-1)
+                obs_pls_three[iter_step, i, :] = observations[idx_plus_three, :]
+        rewards = reward_extractor.get_reward(obs_pls_three)#[:, 0]  # this is the prob of being an expert.
     else:
         rewards = tensor_utils.stack_tensor_list(rewards)
         true_rewards = rewards

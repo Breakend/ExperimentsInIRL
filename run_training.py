@@ -10,7 +10,8 @@ from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolic
 from sampling_utils import load_expert_rollouts
 
 from train import Trainer
-from cost_ioc_tf import GuidedCostLearningTrainer
+from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
+from gan.gan_trainer import GANCostTrainer
 
 import tensorflow as tf
 
@@ -51,12 +52,13 @@ expert_rollouts = load_expert_rollouts(args.expert_rollout_pickle_path)
 obs_dims = len(expert_rollouts[0]['observations'][0])
 traj_len = len(expert_rollouts[0]['observations'])
 
-import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
 
 with tf.Session() as sess:
 
     # TODO: i'm not sure i fully understand this yet
     # cost_trainer = GuidedCostLearningTrainer(observation_dimensions=obs_dims, rollout_batch_size=20, trajectory_length=traj_len, tf_random_seed=123, learning_rate=.01, sess=sess)
+    cost_trainer = GANCostTrainer([4, obs_dims])
 
     trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo)
     sess.run(tf.initialize_all_variables())

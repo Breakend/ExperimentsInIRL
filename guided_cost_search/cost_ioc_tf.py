@@ -6,7 +6,7 @@ import tempfile
 import os
 
 import tensorflow as tf
-from tf_cost_utils import *
+from .tf_cost_utils import *
 from sampling_utils import GpsBatchSampler
 
 LOGGER = logging.getLogger(__name__)

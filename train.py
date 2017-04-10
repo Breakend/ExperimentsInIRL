@@ -29,6 +29,8 @@ class Trainer(object):
         #       will be from the cost function
         novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=len(expert_rollouts), env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator)
 
+        print("True Reward: %f" % np.mean([p['true_rewards'] for p in novice_rollouts]))
+
         # if we're using
         if self.cost_trainer:
 
