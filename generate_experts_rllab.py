@@ -57,7 +57,7 @@ with tf.Session() as sess:
     # import pdb; pdb.set_trace()
     rollouts = sample_policy_trajectories(policy, num_sample_trajectories, env)
 
-import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
 
 with open(args.expert_rollout_pickle_path, "wb") as output_file:
     pickle.dump(rollouts, output_file)

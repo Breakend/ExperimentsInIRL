@@ -98,9 +98,9 @@ class Discriminator(object):
 class ConvStateBasedDiscriminator(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, dim_output=2):
         super(ConvStateBasedDiscriminator, self).__init__(input_dim)
-        self.make_network(dim_input=input_dim, dim_output=2)
+        self.make_network(dim_input=input_dim, dim_output=dim_output)
         self.init_tf()
 
     def get_lab_accuracy(self, data, class_labels):
@@ -163,6 +163,7 @@ class ConvStateBasedDiscriminator(Discriminator):
         loss, optimizer = self.get_loss_layer(pred=fc_output, target_output=target)
 
         self.class_target = target
+        self.weights = weights
         self.nn_input = nn_input
         self.discrimination_logits = fc_output
         self.optimizer = optimizer
@@ -170,6 +171,168 @@ class ConvStateBasedDiscriminator(Discriminator):
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
                           tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+
+    @staticmethod
+    def get_input_layer(num_frames, state_size, dim_output=2):
+        """produce the placeholder inputs that are used to run ops forward and backwards.
+        net_input: usually an observation.
+        action: mu, the ground truth actions we're trying to learn.
+        precision: precision matrix used to commpute loss."""
+        net_input = tf.placeholder('float', [None, num_frames, state_size], name='nn_input')
+        targets = tf.placeholder('float', [None, dim_output], name='targets')
+        return net_input, targets
+
+class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
+    """ A state based descriminator, assuming a state vector """
+
+    def __init__(self, input_dim, nn_input, target, dim_output=2):
+        super(ConvStateBasedDiscriminatorWithExternalIO, self).__init__(input_dim)
+        self.make_network(input_dim, dim_output, nn_input, target)
+        self.init_tf()
+
+    def get_lab_accuracy(self, data, class_labels):
+        return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+    def make_network(self, dim_input, dim_output, nn_input, target):
+        """
+        An example a network in tf that has both state and image inputs.
+        Args:
+            dim_input: Dimensionality of input. expecting 2d tuple (num_frames x num_batches)
+            dim_output: Dimensionality of the output.
+            batch_size: Batch size.
+            network_config: dictionary of network structure parameters
+        Returns:
+            A tfMap object that stores inputs, outputs, and scalar loss.
+        """
+        n_mlp_layers = 2
+        layer_size = 128
+        dim_hidden = (n_mlp_layers - 1) * [layer_size]
+        dim_hidden.append(dim_output)
+        pool_size = 2
+        filter_size = 3
+        # im_width = dim_input[0]
+        # im_height = dim_input[1]
+        # num_channels = dim_input[2]
+        num_filters = [5, 5]
+
+        # we pool twice, each time reducing the image size by a factor of 2.
+        #conv_out_size = int(im_width * im_height * num_filters[1] / ((2.0 * pool_size) * (2.0 * pool_size)))
+        conv_out_size = int(dim_input[0] * num_filters[1])
+        # first_dense_size = conv_out_size
+
+        # Store layers weight & bias
+        weights = {
+            'wc1': self.get_xavier_weights([filter_size, dim_input[1], num_filters[0]], (pool_size, pool_size)),
+        # 5x5 conv, 1 input, 32 outputs
+            'wc2': self.get_xavier_weights([filter_size, num_filters[0], num_filters[1]], (pool_size, pool_size)),
+        # 5x5 conv, 32 inputs, 64 outputs
+        }
+
+        biases = {
+            'bc1': self.init_bias([num_filters[0]]),
+            'bc2': self.init_bias([num_filters[1]]),
+        }
+
+        conv_layer_0 = self.conv1d(vec=nn_input, w=weights['wc1'], b=biases['bc1'])
+
+        # conv_layer_0 = self.max_pool(conv_layer_0, k=pool_size)
+
+        conv_layer_1 = self.conv1d(vec=conv_layer_0, w=weights['wc2'], b=biases['bc2'])
+
+        # conv_layer_1 = self.max_pool(conv_layer_1, k=pool_size)
+
+        conv_out_flat = tf.reshape(conv_layer_1, [-1, conv_out_size])
+
+        fc_output = self.get_mlp_layers(conv_out_flat, n_mlp_layers, dim_hidden, dropout=None)
+
+        # loss, optimizer = self.get_loss_layer(pred=fc_output, target_output=target)
+
+        self.class_target = target
+        self.weights = weights
+        self.nn_input = nn_input
+        self.discrimination_logits = fc_output
+        # self.optimizer = optimizer
+        # self.loss = loss
+        label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
+                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
+        self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+
+    @staticmethod
+    def get_input_layer(num_frames, state_size, dim_output=2):
+        """produce the placeholder inputs that are used to run ops forward and backwards.
+        net_input: usually an observation.
+        action: mu, the ground truth actions we're trying to learn.
+        precision: precision matrix used to commpute loss."""
+        net_input = tf.placeholder('float', [None, num_frames, state_size], name='nn_input')
+        targets = tf.placeholder('float', [None, dim_output], name='targets')
+        return net_input, targets
+
+class ConvStateBasedDiscriminatorWithOptions(Discriminator):
+    """ A state based descriminator, assuming a state vector """
+
+    def __init__(self, input_dim, num_options=4):
+        super(ConvStateBasedDiscriminatorWithOptions, self).__init__(input_dim)
+        self.num_options = num_options
+        self.use_l1_loss = False
+        self.make_network(dim_input=input_dim, dim_output=2)
+        self.init_tf()
+
+    def get_lab_accuracy(self, data, class_labels):
+        return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+    def make_network(self, dim_input, dim_output):
+        """
+        An example a network in tf that has both state and image inputs.
+        Args:
+            dim_input: Dimensionality of input. expecting 2d tuple (num_frames x num_batches)
+            dim_output: Dimensionality of the output.
+            batch_size: Batch size.
+            network_config: dictionary of network structure parameters
+        Returns:
+            A tfMap object that stores inputs, outputs, and scalar loss.
+        """
+        discriminator_options = []
+        nn_input, target = self.get_input_layer(dim_input[0], dim_input[1], dim_output)
+
+        #TODO: a better formulation is to have terminations be a latent variable that somehow sums to 1
+        #TODO: can we combined these mixtures in interesting ways to train each other?
+
+        # For example, can we have one net that takes into it pixels and another that takes in states, then we backprop
+        # through the whole network using information from the states during training, but then drop that part of the network
+        # and in that way keep information from the state and transfer it to the image inputs.
+        # NOTE: if we don't do this and you see this in our code and decide to do it, please reach out to us first.
+
+        termination_options = ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, self.num_options)
+        termination_softmax_logits = tf.nn.softmax(termination_options.discrimination_logits)
+        for i in range(self.num_options):
+            discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target))
+
+        # try to make the weights sparse so we dropout features
+        if self.use_l1_loss:
+            l1_regularizer = tf.contrib.layers.l1_regularizer(scale=0.1, scope=None)
+            regularization_penalty = tf.contrib.layers.apply_regularization(l1_regularizer, termination_options.weights)
+        else:
+            regularization_penalty = 0.0
+
+        #TODO: add gaussian noise and top-k? https://arxiv.org/pdf/1701.06538.pdf
+        self.class_target = target
+        # import pdb; pdb.set_trace()
+        self.nn_input = nn_input
+        #TODO: softmax
+        self.discrimination_logits = tf.add_n([tf.transpose(tf.multiply(tf.transpose(x.discrimination_logits), termination_softmax_logits[:,i])) for i, x in enumerate(discriminator_options)]) + regularization_penalty
+        # TODO: add importance or dropout to the loss function or something. I.e. have each expert be responsible for a state space somehow. and all the termiantion values should some to 1
+        self.loss, self.optimizer = self.get_loss_layer(pred=self.discrimination_logits, target_output=target)
+        label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
+                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
+        self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+
+        # Why do this? apply these termination functions as termination functions for policy options?
+        # use TRPO to train N different policies with the termination function taking into account the states
+
+
+
 
     @staticmethod
     def get_input_layer(num_frames, state_size, dim_output=2):

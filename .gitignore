@@ -90,3 +90,4 @@ ENV/
 
 experts/modular_rl
 experts/expert_rollouts*
+novices/*
