@@ -305,7 +305,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # NOTE: if we don't do this and you see this in our code and decide to do it, please reach out to us first.
 
         termination_options = ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, self.num_options)
-        termination_softmax_logits = tf.nn.softmax(termination_options.discrimination_logits)
+        self.termination_softmax_logits = tf.nn.softmax(termination_options.discrimination_logits)
         for i in range(self.num_options):
             discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target))
 
@@ -331,9 +331,8 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # Why do this? apply these termination functions as termination functions for policy options?
         # use TRPO to train N different policies with the termination function taking into account the states
 
-
-
-
+    def output_termination_activations(self):
+        return self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: data})[0]
     @staticmethod
     def get_input_layer(num_frames, state_size, dim_output=2):
         """produce the placeholder inputs that are used to run ops forward and backwards.

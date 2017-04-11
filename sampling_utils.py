@@ -24,7 +24,7 @@ class GpsBatchSampler(object):
     def iterate(self, batch_size=10, epochs=float('inf'), shuffle=True):
         raise NotImplementedError()
 
-def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200, reward_extractor=None):
+def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200, reward_extractor=None, concat_timesteps=True):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
     Generate a sampling dataset for a given number of rollouts
@@ -32,7 +32,7 @@ def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200,
     paths = []
 
     for iter_step in range(0, number_of_trajectories):
-        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=reward_extractor))
+        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=reward_extractor, concat_timesteps=concat_timesteps))
 
     return paths
 
@@ -40,7 +40,7 @@ def load_expert_rollouts(filepath):
     # why encoding? http://stackoverflow.com/questions/11305790/pickle-incompatability-of-numpy-arrays-between-python-2-and-3
     return pickle.load(open(filepath, "rb"), encoding='latin1')
 
-def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False, num_frames=4):
+def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False, num_frames=4, concat_timesteps=True):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
     Generate a rollout for a given policy
@@ -86,13 +86,17 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
 
     if reward_extractor is not None:
         #TODO: remove/replace this
-        true_rewards = tensor_utils.stack_tensor_list(rewards)
-        obs_pls_three = np.zeros((observations.shape[0], num_frames, observations.shape[1]))
-        for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.
-            for i in range(num_frames):
-                idx_plus_three = min(iter_step+num_frames, obs_pls_three.shape[0]-1)
-                obs_pls_three[iter_step, i, :] = observations[idx_plus_three, :]
-        rewards = reward_extractor.get_reward(obs_pls_three)#[:, 0]  # this is the prob of being an expert.
+        if concat_timesteps:
+            true_rewards = tensor_utils.stack_tensor_list(rewards)
+            obs_pls_three = np.zeros((observations.shape[0], num_frames, observations.shape[1]))
+            for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.
+                for i in range(num_frames):
+                    idx_plus_three = min(iter_step+num_frames, obs_pls_three.shape[0]-1)
+                    obs_pls_three[iter_step, i, :] = observations[idx_plus_three, :]
+            rewards = reward_extractor.get_reward(obs_pls_three)#[:, 0]  # this is the prob of being an expert.
+        else:
+            true_rewards = tensor_utils.stack_tensor_list(rewards)
+            rewards = reward_extractor.get_reward(observations)
     else:
         rewards = tensor_utils.stack_tensor_list(rewards)
         true_rewards = rewards
