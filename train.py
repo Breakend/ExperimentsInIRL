@@ -58,3 +58,4 @@ class Trainer(object):
             self.cost_trainer.dump_datapoints(self.num_frames)
 
         print("Training Iteration (Full Novice Rollouts): %d" % self.iteration)
+        return np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]), np.mean([np.sum(p['rewards']) for p in novice_rollouts])

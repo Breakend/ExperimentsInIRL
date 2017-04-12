@@ -307,6 +307,8 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # NOTE: if we don't do this and you see this in our code and decide to do it, please reach out to us first.
 
         termination_options = ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, self.num_options)
+
+        #TODO: make this the k-best thing
         self.termination_softmax_logits = tf.nn.softmax(termination_options.discrimination_logits)
         for i in range(self.num_options):
             discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target))
@@ -331,7 +333,8 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
         mean, var = tf.nn.moments(termination_importance_values, axes=[0])
         cv = var/mean
-        self.loss += tf.nn.l2_loss(cv)
+        importance_weight = .2
+        self.loss += importance_weight*tf.nn.l2_loss(cv)
 
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
                           tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
@@ -343,8 +346,8 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
     def output_termination_activations(self, num_frames):
         number_data_points_per_dimension = 100
         # TODO: make these variable per dimension
-        dim_min = -2
-        dim_max = 2
+        dim_min = -3
+        dim_max = 3
         lins = []
         for i in range(self.input_dim[1]):
             lins.append(np.arange(dim_min, dim_max, 0.2))
@@ -375,6 +378,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             plt.legend()
             fig.suptitle('Summed Activations for Dimension %d' % dimension)
             fig.savefig('activations_dim_%d.png' % dimension)
+            plt.clf()
 
     @staticmethod
     def get_input_layer(num_frames, state_size, dim_output=2):
