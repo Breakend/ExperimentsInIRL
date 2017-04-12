@@ -13,19 +13,21 @@ from train import Trainer
 from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
 from gan.gan_trainer import GANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
+from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrainer
 
 import tensorflow as tf
 import pickle
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("expert_rollout_pickle_path")
-parser.add_argument("trained_policy_pickle_path")
+# parser.add_argument("trained_policy_pickle_path")
 args = parser.parse_args()
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
 env = TfEnv(normalize(GymEnv("CartPole-v0", force_reset=True)))
 
+# TRPO NN
 policy = CategoricalMLPPolicy(
 name="policy",
 env_spec=env.spec,
@@ -54,14 +56,9 @@ expert_rollouts = load_expert_rollouts(args.expert_rollout_pickle_path)
 obs_dims = len(expert_rollouts[0]['observations'][0])
 traj_len = len(expert_rollouts[0]['observations'])
 
-# import pdb; pdb.set_trace()
-
 with tf.Session() as sess:
-
-    # TODO: i'm not sure i fully understand this yet
     # cost_trainer = GuidedCostLearningTrainer(observation_dimensions=obs_dims, rollout_batch_size=20, trajectory_length=traj_len, tf_random_seed=123, learning_rate=.01, sess=sess)
-    cost_trainer = ApprenticeshipCostLearningTrainer(...)
-
+    cost_trainer = ApprenticeshipCostLearningTrainer(expert_paths=expert_rollouts, input_dims=obs_dims, gamma = 0.9)
     trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo, concat_timesteps=False)
     sess.run(tf.initialize_all_variables())
 
