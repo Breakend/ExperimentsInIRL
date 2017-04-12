@@ -326,6 +326,13 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         self.discrimination_logits = tf.add_n([tf.transpose(tf.multiply(tf.transpose(x.discrimination_logits), self.termination_softmax_logits[:,i])) for i, x in enumerate(discriminator_options)]) + regularization_penalty
         # TODO: add importance or dropout to the loss function or something. I.e. have each expert be responsible for a state space somehow. and all the termiantion values should some to 1
         self.loss, self.optimizer = self.get_loss_layer(pred=self.discrimination_logits, target_output=target)
+
+        # add importance to loss
+        termination_importance_values = tf.sum(self.termination_softmax_logits)
+        mean, var = tf.nn.moments(termination_importance_values, axes=[1])
+        cv = var/mean
+        self.loss += tf.nn.l2_loss(cv)
+
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
                           tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
@@ -344,18 +351,30 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             # lins.append(np.linspace(dim_min, dim_max, number_data_points_per_dimension))
         # import pdb; pdb.set_trace()
         meshes = np.meshgrid(*lins, sparse=False)
-        # import pdb; pdb.set_trace()
         # TODO: finish this
 
-
         data = np.array(meshes).T.reshape(-1, num_frames, self.input_dim[1])
-        activations = self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: data})[0]
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        # TODO: show the different combinations of variables and activations
-        surf = ax.plot_surface(lins[0], lins[1], activations, cmap=cm.coolwarm,
-                               linewidth=0, antialiased=False)
-        plt.show()
+        # TODO: this is gross
+        for dimension in range(self.input_dim[1]):
+            mean_activations_for_values = []
+            for i in np.arange(dim_min, dim_max, 0.2):
+                input_arrays = []
+                for x in data:
+                    # TODO: the 0 below indexes into the frame, this is gross... this is all gross...
+                    if x[0][dimension] == i:
+                        input_arrays.append(x)
+                activations = self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: np.array(input_arrays)})[0]
+                mean_activations = np.sum(activations, axis=0)
+                mean_activations_for_values.append(mean_activations)
+            dim_range = np.arange(dim_min, dim_max, 0.2)
+            fig = plt.figure()
+            for j in range(self.num_options):
+                plt.plot(dim_range, [x[j] for x in mean_activations_for_values], label="Reward Option %d" % j)
+            plt.xlabel('Inputs Along Dimension %d' % dimension, fontsize=18)
+            plt.ylabel('Sum of Activations Along Uniform Grid', fontsize=16)
+            plt.legend()
+            fig.suptitle('Summed Activations for Dimension %d' % dimension)
+            fig.savefig('activations_dim_%d.png' % dimension)
 
     @staticmethod
     def get_input_layer(num_frames, state_size, dim_output=2):

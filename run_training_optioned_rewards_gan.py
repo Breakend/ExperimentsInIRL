@@ -68,7 +68,7 @@ with tf.Session() as sess:
     iterations = 100
 
     for iter_step in range(0, iterations):
-        trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=False)
+        trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=True)
 
 with open(args.trained_policy_pickle_path, "wb") as output_file:
     pickle.dump(policy, output_file)
