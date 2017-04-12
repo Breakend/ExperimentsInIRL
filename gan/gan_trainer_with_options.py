@@ -10,8 +10,12 @@ class GANCostTrainerWithRewardOptions(object):
     def get_reward(self, samples):
         return self.disc.eval(samples)[:, 0]
 
-    def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2):
-        data_matrix, class_matrix = self.shuffle_to_training_data(expert_rollouts_tensor, novice_rollouts_tensor)
+    def dump_datapoints(self, num_frames=4):
+        input_data, termination_activations = self.disc.output_termination_activations(num_frames)
+        return
+
+    def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=4):
+        data_matrix, class_matrix = self.shuffle_to_training_data(expert_rollouts_tensor, novice_rollouts_tensor, num_frames=num_frames)
         self._train_cost(data_matrix, number_epochs, class_matrix)
 
     def _train_cost(self, data, epochs, classes, batch_size=20, horizon=200):
@@ -66,8 +70,8 @@ class GANCostTrainerWithRewardOptions(object):
         # generate random samples of size num_frames
         for one_idx, iter_step in zip(all_idxs, range(0, sample_range)):
             traj_key = int(np.floor(one_idx/t_steps))
-            time_key = one_idx % t_steps
-            for t in range(0, num_frames-1):
+            time_key = time_key_plus_one = one_idx % t_steps
+            for t in range(0, num_frames):
                 time_key_plus_one = min(time_key + t, t_steps-1)
                 data_matrix[iter_step, t, :] = data[traj_key, time_key_plus_one, :]
             # take the class of the last frame

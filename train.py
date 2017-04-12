@@ -4,7 +4,7 @@ from rllab.misc import tensor_utils
 
 class Trainer(object):
 
-    def __init__(self, sess, env, cost_approximator, cost_trainer, novice_policy, novice_policy_optimizer, concat_timesteps=False):
+    def __init__(self, sess, env, cost_approximator, cost_trainer, novice_policy, novice_policy_optimizer, num_frames=4, concat_timesteps=True):
         """
         sess : tensorflow session
         cost_approximator : the NN or whatever cost function that can take in your observations/states and then give you your reward
@@ -22,13 +22,14 @@ class Trainer(object):
         self.novice_policy_optimizer = novice_policy_optimizer
         self.sampler = BaseSampler(self.novice_policy_optimizer)
         self.concat_timesteps = concat_timesteps
+        self.num_frames = num_frames
 
-    def step(self, expert_rollouts, expert_horizon=200):
+    def step(self, expert_rollouts, expert_horizon=200, dump_datapoints=False):
 
         # collect samples for novice policy
         # TODO: use cost to get rewards based on current cost, that is the rewards returned as part of the Rollouts
         #       will be from the cost function
-        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=len(expert_rollouts), env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, concat_timesteps=self.concat_timesteps)
+        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=len(expert_rollouts), env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
 
         # import pdb; pdb.set_trace()
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
@@ -42,7 +43,7 @@ class Trainer(object):
             novice_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in novice_rollouts])
             expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
 
-            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2)
+            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
 
         # This does things like calculate advantages and entropy, etc.
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
@@ -53,4 +54,7 @@ class Trainer(object):
         self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
 
         self.iteration += 1
+        if dump_datapoints:
+            self.cost_trainer.dump_datapoints(self.num_frames)
+
         print("Training Iteration (Full Novice Rollouts): %d" % self.iteration)
