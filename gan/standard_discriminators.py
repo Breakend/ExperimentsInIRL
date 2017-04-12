@@ -328,8 +328,8 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         self.loss, self.optimizer = self.get_loss_layer(pred=self.discrimination_logits, target_output=target)
 
         # add importance to loss
-        termination_importance_values = tf.sum(self.termination_softmax_logits)
-        mean, var = tf.nn.moments(termination_importance_values, axes=[1])
+        termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
+        mean, var = tf.nn.moments(termination_importance_values, axes=[0])
         cv = var/mean
         self.loss += tf.nn.l2_loss(cv)
 
