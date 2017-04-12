@@ -43,10 +43,12 @@ class ApprenticeshipCostLearningTrainer(object):
 
     def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=1):
         # TODO: Change structure to avoid redundant computations another way
+
         if self.first_call:
             for path in expert_rollouts_tensor:
                 self.expert_fe.append(self.compute_FE(path))
-            self.expert_fe = np.mean(self.expert_fe, 0) # Compute mean along feature columns
+            # self.expert_fe = np.mean(self.expert_fe, 0) # Compute mean along feature columns
+            self.expert_fe = self.expert_fe[0]
             # self.expert_fe = self.expert_fe[0]
             print(self.expert_fe)
             self.first_call = False
@@ -55,8 +57,8 @@ class ApprenticeshipCostLearningTrainer(object):
         novice_fe = []
         for path in novice_rollouts_tensor:
             novice_fe.append(self.compute_FE(path))
-        novice_fe = np.mean(novice_fe, 0)
-        # novice_fe = novice_fe[0]
+        # novice_fe = np.mean(novice_fe, 0)
+        novice_fe = novice_fe[0]
         self.curr_fe = novice_fe
         print(novice_fe)
         hyperDistance = np.abs(np.dot(self.weights, np.asarray(self.expert_fe)-np.asarray(novice_fe)))
@@ -71,13 +73,14 @@ class ApprenticeshipCostLearningTrainer(object):
     def optimize(self, expert_fe): # implement the convex optimization, posed as an SVM problem
         # Set m to the number of expert paths we have
         m = len(expert_fe)
+        # why?
         P = matrix(2.0*np.eye(m), tc='d') # min ||w||
         q = matrix(np.zeros(m), tc='d')
+
         feature_expectations = [expert_fe]
-        h_list = [1] # = labels
-        for i in self.agent_fe_data.keys():
-            feature_expectations.append(self.agent_fe_data[i])
-            h_list.append(1)
+        # h_list = [1] # = labels
+        feature_expectations.extend(self.agent_fe_data.values())
+        h_list = [1]*len(feature_expectations)
 
         # Form the matrices for the quadratic solver
         policyMat = np.matrix(feature_expectations)
