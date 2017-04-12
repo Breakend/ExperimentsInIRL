@@ -17,6 +17,10 @@ class ApprenticeshipCostLearningTrainer(object):
         self.expert_fe = []
         self.first_call = True
 
+        self.last_fe=[]
+        self.curr_fe = []
+        self.mu_bar_prev = 0
+        self.mu_bar_curr = 0
 
     def get_reward(self, obs):
         r = []
@@ -31,19 +35,20 @@ class ApprenticeshipCostLearningTrainer(object):
 
     '''Unrolls the input path and computes feature expectations'''
     def compute_FE(self, path):
-        # obs = path["observations"]
         feature_expect = np.zeros(self.dim)
         for i, ob in enumerate(path):
             feature_expect += (self.gamma**i)*np.array(ob)
         return feature_expect
 
 
-    def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2):
+    def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=1):
         # TODO: Change structure to avoid redundant computations another way
         if self.first_call:
             for path in expert_rollouts_tensor:
                 self.expert_fe.append(self.compute_FE(path))
             self.expert_fe = np.mean(self.expert_fe, 0) # Compute mean along feature columns
+            # self.expert_fe = self.expert_fe[0]
+            print(self.expert_fe)
             self.first_call = False
 
         # Update values for the previous iteration
@@ -51,6 +56,8 @@ class ApprenticeshipCostLearningTrainer(object):
         for path in novice_rollouts_tensor:
             novice_fe.append(self.compute_FE(path))
         novice_fe = np.mean(novice_fe, 0)
+        # novice_fe = novice_fe[0]
+        self.curr_fe = novice_fe
         print(novice_fe)
         hyperDistance = np.abs(np.dot(self.weights, np.asarray(self.expert_fe)-np.asarray(novice_fe)))
         self.agent_fe_data[hyperDistance] = novice_fe # Add to backlog
