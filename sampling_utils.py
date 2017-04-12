@@ -24,7 +24,7 @@ class GpsBatchSampler(object):
     def iterate(self, batch_size=10, epochs=float('inf'), shuffle=True):
         raise NotImplementedError()
 
-def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200, reward_extractor=None, concat_timesteps=True):
+def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200, reward_extractor=None, num_frames=4, concat_timesteps=True):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
     Generate a sampling dataset for a given number of rollouts
@@ -32,7 +32,7 @@ def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200,
     paths = []
 
     for iter_step in range(0, number_of_trajectories):
-        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=reward_extractor, concat_timesteps=concat_timesteps))
+        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=reward_extractor, num_frames=num_frames, concat_timesteps=concat_timesteps))
 
     return paths
 

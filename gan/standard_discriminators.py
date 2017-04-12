@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 
 # This is mostly taken and modified from: https://github.com/Breakend/third_person_im/blob/master/sandbox/bradly/third_person/discriminators/discriminator.py
 
@@ -275,6 +276,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         super(ConvStateBasedDiscriminatorWithOptions, self).__init__(input_dim)
         self.num_options = num_options
         self.use_l1_loss = False
+        self.input_dim = input_dim
         self.make_network(dim_input=input_dim, dim_output=2)
         self.init_tf()
 
@@ -321,7 +323,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # import pdb; pdb.set_trace()
         self.nn_input = nn_input
         #TODO: softmax
-        self.discrimination_logits = tf.add_n([tf.transpose(tf.multiply(tf.transpose(x.discrimination_logits), termination_softmax_logits[:,i])) for i, x in enumerate(discriminator_options)]) + regularization_penalty
+        self.discrimination_logits = tf.add_n([tf.transpose(tf.multiply(tf.transpose(x.discrimination_logits), self.termination_softmax_logits[:,i])) for i, x in enumerate(discriminator_options)]) + regularization_penalty
         # TODO: add importance or dropout to the loss function or something. I.e. have each expert be responsible for a state space somehow. and all the termiantion values should some to 1
         self.loss, self.optimizer = self.get_loss_layer(pred=self.discrimination_logits, target_output=target)
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
@@ -331,8 +333,30 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # Why do this? apply these termination functions as termination functions for policy options?
         # use TRPO to train N different policies with the termination function taking into account the states
 
-    def output_termination_activations(self):
-        return self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: data})[0]
+    def output_termination_activations(self, num_frames):
+        number_data_points_per_dimension = 100
+        # TODO: make these variable per dimension
+        dim_min = -2
+        dim_max = 2
+        lins = []
+        for i in range(self.input_dim[1]):
+            lins.append(np.arange(dim_min, dim_max, 0.2))
+            # lins.append(np.linspace(dim_min, dim_max, number_data_points_per_dimension))
+        # import pdb; pdb.set_trace()
+        meshes = np.meshgrid(*lins, sparse=False)
+        # import pdb; pdb.set_trace()
+        # TODO: finish this
+
+
+        data = np.array(meshes).T.reshape(-1, num_frames, self.input_dim[1])
+        activations = self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: data})[0]
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        # TODO: show the different combinations of variables and activations
+        surf = ax.plot_surface(lins[0], lins[1], activations, cmap=cm.coolwarm,
+                               linewidth=0, antialiased=False)
+        plt.show()
+
     @staticmethod
     def get_input_layer(num_frames, state_size, dim_output=2):
         """produce the placeholder inputs that are used to run ops forward and backwards.

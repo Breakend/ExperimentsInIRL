@@ -58,9 +58,7 @@ traj_len = len(expert_rollouts[0]['observations'])
 
 with tf.Session() as sess:
 
-    # TODO: i'm not sure i fully understand this yet
-    # cost_trainer = GuidedCostLearningTrainer(observation_dimensions=obs_dims, rollout_batch_size=20, trajectory_length=traj_len, tf_random_seed=123, learning_rate=.01, sess=sess)
-    cost_trainer = GANCostTrainerWithRewardOptions([4, obs_dims])
+    cost_trainer = GANCostTrainer([4, obs_dims])
 
     trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo)
     sess.run(tf.initialize_all_variables())
