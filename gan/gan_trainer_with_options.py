@@ -11,7 +11,7 @@ class GANCostTrainerWithRewardOptions(object):
         return self.disc.eval(samples)[:, 0]
 
     def dump_datapoints(self, num_frames=4):
-        input_data, termination_activations = self.disc.output_termination_activations(num_frames)
+        self.disc.output_termination_activations(num_frames)
         return
 
     def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=4):

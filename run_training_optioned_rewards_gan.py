@@ -8,12 +8,14 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.gym_env import GymEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
 from sampling_utils import load_expert_rollouts
+import numpy as np
 
 from train import Trainer
 from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
 from gan.gan_trainer import GANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
 
+from experiment import *
 import tensorflow as tf
 import pickle
 import argparse
@@ -26,49 +28,24 @@ args = parser.parse_args()
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
 env = TfEnv(normalize(GymEnv("CartPole-v0", force_reset=True)))
 
-policy = CategoricalMLPPolicy(
-name="policy",
-env_spec=env.spec,
-# The neural network policy should have two hidden layers, each with 32 hidden units.
-hidden_sizes=(32, 32)
-)
+# average results over 10 experiments
+true_rewards = []
+for i in range(2):
+    with tf.variable_scope('sess_%d'%i):
+        true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path, args.trained_policy_pickle_path, env, GANCostTrainerWithRewardOptions)
+        true_rewards.append(true_rewards_exp)
 
-baseline = LinearFeatureBaseline(env_spec=env.spec)
+avg_true_rewards = np.mean(true_rewards, axis=0)
 
-algo = TRPO(
-    env=env,
-    policy=policy,
-    baseline=baseline,
-    batch_size=4000,
-    max_path_length=100,
-    n_itr=40,
-    discount=0.99,
-    step_size=0.01,
-    optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+import matplotlib.pyplot as plt
 
-)
+# TODO: probably just dump this and then load them all to generate graphs with all the different agents.
 
-expert_rollouts = load_expert_rollouts(args.expert_rollout_pickle_path)
-
-# TODO: hack to generically load dimensions of structuresx
-obs_dims = len(expert_rollouts[0]['observations'][0])
-traj_len = len(expert_rollouts[0]['observations'])
-
-# import pdb; pdb.set_trace()
-
-with tf.Session() as sess:
-
-    num_frames = 1
-
-    cost_trainer = GANCostTrainerWithRewardOptions([num_frames, obs_dims])
-
-    trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo, num_frames=num_frames)
-    sess.run(tf.initialize_all_variables())
-
-    iterations = 100
-
-    for iter_step in range(0, iterations):
-        trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=False)
-
-with open(args.trained_policy_pickle_path, "wb") as output_file:
-    pickle.dump(policy, output_file)
+plt.figure()
+plt.show(avg_true_rewards)
+plt.xlabel('Training iterations', fontsize=18)
+plt.ylabel('Average True Reward', fontsize=16)
+plt.legend()
+fig.suptitle('True Reward over Training Iterations')
+fig.savefig('true_reward_option_gan.png')
+plt.clf()
