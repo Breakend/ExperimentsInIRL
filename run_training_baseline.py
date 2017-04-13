@@ -42,12 +42,11 @@ algo = TRPO(
     policy=policy,
     baseline=baseline,
     batch_size=4000,
-    max_path_length=100,
+    max_path_length=200,
     n_itr=40,
     discount=0.99,
     step_size=0.01,
     optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
-
 )
 
 expert_rollouts = load_expert_rollouts(args.expert_rollout_pickle_path)
@@ -62,7 +61,7 @@ with tf.Session() as sess:
     trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo, concat_timesteps=False, num_frames=1)
     sess.run(tf.initialize_all_variables())
 
-    iterations = 100
+    iterations = 2000
 
     for iter_step in range(0, iterations):
         trainer.step(expert_rollouts=expert_rollouts)

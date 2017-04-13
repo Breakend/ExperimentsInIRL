@@ -29,7 +29,9 @@ class Trainer(object):
         # collect samples for novice policy
         # TODO: use cost to get rewards based on current cost, that is the rewards returned as part of the Rollouts
         #       will be from the cost function
-        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=len(expert_rollouts), env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
+        # TODO: number of novice trajectories set according to running IRL algorithm
+        #       1 for apprenticeship learning (single trajectory)
+        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=1, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
 
         # import pdb; pdb.set_trace()
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
