@@ -20,7 +20,7 @@ class Discriminator(object):
     def init_tf(self):
         if self.sess is None:
             self.sess = tf.Session()
-        init = tf.initialize_all_variables()
+        init = tf.global_variables_initializer()
         self.sess.run(init)
 
     def make_network(self, dim_input, output_dim_class, output_dim_dom):
@@ -331,9 +331,10 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
 
         # add importance to loss
         termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
+        # import pdb; pdb.set_trace()
         mean, var = tf.nn.moments(termination_importance_values, axes=[0])
         cv = var/mean
-        importance_weight = .2
+        importance_weight = .5
         self.loss += importance_weight*tf.nn.l2_loss(cv)
 
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),

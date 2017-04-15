@@ -38,11 +38,11 @@ import matplotlib.pyplot as plt
 
 # TODO: probably just dump this and then load them all to generate graphs with all the different agents.
 
-plt.figure()
-plt.show(avg_true_rewards)
+fig = plt.figure()
+plt.plot(avg_true_rewards)
 plt.xlabel('Training iterations', fontsize=18)
 plt.ylabel('Average True Reward', fontsize=16)
-plt.legend()
+# plt.legend()
 fig.suptitle('True Reward over Training Iterations')
 fig.savefig('true_reward_option_gan.png')
 plt.clf()
