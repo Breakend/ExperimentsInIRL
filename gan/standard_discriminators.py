@@ -272,19 +272,19 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
 class ConvStateBasedDiscriminatorWithOptions(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, num_options=4):
+    def __init__(self, input_dim, num_options=4, mixtures=True):
         super(ConvStateBasedDiscriminatorWithOptions, self).__init__(input_dim)
         self.num_options = num_options
         self.use_l1_loss = False
         self.input_dim = input_dim
-        self.make_network(dim_input=input_dim, dim_output=2)
+        self.make_network(dim_input=input_dim, dim_output=2, mixtures=mixtures)
         self.init_tf()
 
     def get_lab_accuracy(self, data, class_labels):
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
-    def make_network(self, dim_input, dim_output):
+    def make_network(self, dim_input, dim_output, mixtures=False):
         """
         An example a network in tf that has both state and image inputs.
         Args:
@@ -308,8 +308,17 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
 
         termination_options = ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, self.num_options)
 
-        #TODO: make this the k-best thing
+        #TODO: make this configurable
+        k = 1
+
         self.termination_softmax_logits = tf.nn.softmax(termination_options.discrimination_logits)
+        # import pdb; pdb.set_trace()
+
+        if not mixtures:
+            # TODO: then it's options, this flag is gross, change it
+            self.termination_softmax_logits = tf.reshape(tf.one_hot(tf.nn.top_k(self.termination_softmax_logits).indices, tf.shape(self.termination_softmax_logits)[1]), tf.shape(self.termination_softmax_logits))
+            # self.termination_softmax_logits = tf.one_hot(tf.nn.top_k(self.termination_softmax_logits).indices, tf.shape(self.termination_softmax_logits)[0])
+
         for i in range(self.num_options):
             discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target))
 
@@ -334,7 +343,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # import pdb; pdb.set_trace()
         mean, var = tf.nn.moments(termination_importance_values, axes=[0])
         cv = var/mean
-        importance_weight = .5
+        importance_weight = 0.01
         self.loss += importance_weight*tf.nn.l2_loss(cv)
 
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
