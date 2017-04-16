@@ -24,19 +24,27 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("expert_rollout_pickle_path")
 parser.add_argument("trained_policy_pickle_path")
-parser.add_argument("--num_frames", default=4)
+parser.add_argument("--num_frames", default=4, type=int)
+parser.add_argument("--num_experiments", default=5, type=int)
+parser.add_argument("--importance_weights", default=0.0, type=float)
+# parser.add_argument("--number_expert_rollouts", default=10, type=int)
+# parser.add_argument("--number_novice_rollouts", default=10, type=int)
 args = parser.parse_args()
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
 env = TfEnv(normalize(GymEnv("CartPole-v0", force_reset=True)))
 
+#TODO: move everything into the config
+config = {}
+config["importance_weights"] = args.importance_weights
+
 # average results over 10 experiments
 true_rewards = []
-for i in range(2):
+for i in range(args.num_experiments):
     print("Running Experiment %d" % i)
     with tf.variable_scope('sess_%d'%i):
-        true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path, args.trained_policy_pickle_path, env, GANCostTrainerWithRewardOptions)
+        true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path, args.trained_policy_pickle_path, env, GANCostTrainerWithRewardOptions, num_frames=args.num_frames, config=config)
         true_rewards.append(true_rewards_exp)
 
 avg_true_rewards = np.mean(true_rewards, axis=0)

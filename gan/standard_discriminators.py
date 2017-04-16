@@ -272,9 +272,11 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
 class ConvStateBasedDiscriminatorWithOptions(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, num_options=4, mixtures=True):
+    def __init__(self, input_dim, num_options=4, mixtures=True, config={}):
         super(ConvStateBasedDiscriminatorWithOptions, self).__init__(input_dim)
         self.num_options = num_options
+        # TODO: move the other args into the config
+        self.config = config
         self.use_l1_loss = False
         self.input_dim = input_dim
         self.make_network(dim_input=input_dim, dim_output=2, mixtures=mixtures)
@@ -343,7 +345,10 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # import pdb; pdb.set_trace()
         mean, var = tf.nn.moments(termination_importance_values, axes=[0])
         cv = var/mean
-        importance_weight = 0.00
+        if "importance_weight" in self.config:
+            importance_weight = config["importance_weight"]
+        else:
+            importance_weight = 0.00
         self.loss += importance_weight*tf.nn.l2_loss(cv)
 
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),

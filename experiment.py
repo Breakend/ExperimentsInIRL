@@ -19,7 +19,7 @@ import tensorflow as tf
 import pickle
 import argparse
 
-def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1):
+def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1, config={}):
 
     policy = CategoricalMLPPolicy(
     name="policy",
@@ -58,7 +58,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
     with tf.Session() as sess:
 
-        cost_trainer = cost_trainer_type([num_frames, obs_dims])
+        cost_trainer = cost_trainer_type([num_frames, obs_dims], config=config)
 
         trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo, num_frames=num_frames)
         sess.run(tf.global_variables_initializer())
