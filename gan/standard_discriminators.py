@@ -343,7 +343,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # import pdb; pdb.set_trace()
         mean, var = tf.nn.moments(termination_importance_values, axes=[0])
         cv = var/mean
-        importance_weight = 0.01
+        importance_weight = 0.00
         self.loss += importance_weight*tf.nn.l2_loss(cv)
 
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),

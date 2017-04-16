@@ -12,14 +12,20 @@ import pickle
 import tensorflow as tf
 import argparse
 parser = argparse.ArgumentParser()
+parser.add_argument("env")
 parser.add_argument("expert_rollout_pickle_path")
 args = parser.parse_args()
 
 # stub(globals())
 
+supported_envs = ["MountainCar-v0", "CartPole-v0"]
+
+if args.env not in supported_envs:
+    raise Exception("Env not supported! Try it out though?")
+
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
-env = TfEnv(normalize(GymEnv("CartPole-v0", force_reset=True)))
+env = TfEnv(normalize(GymEnv(args.env, force_reset=True)))
 
 policy = CategoricalMLPPolicy(
 name="policy",

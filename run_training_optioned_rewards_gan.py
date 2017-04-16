@@ -24,6 +24,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("expert_rollout_pickle_path")
 parser.add_argument("trained_policy_pickle_path")
+parser.add_argument("--num_frames", default=4)
 args = parser.parse_args()
 
 # Need to wrap in a tf environment and force_reset to true
@@ -49,6 +50,10 @@ with open("optioned_rewards_data.pickle", "wb") as output_file:
 fig = plt.figure()
 plt.plot(avg_true_rewards)
 plt.xlabel('Training iterations', fontsize=18)
+plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_reward-true_rewards_variance, avg_true_reward+true_rewards_variance,
+    alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
+    linewidth=4, linestyle='dashdot', antialiased=True)
+
 plt.ylabel('Average True Reward', fontsize=16)
 # plt.legend()
 fig.suptitle('True Reward over Training Iterations')
