@@ -5,19 +5,32 @@ import tensorflow as tf
 from cvxopt import matrix, solvers
 from scipy.special import expit
 
+
+from random import gauss
+
+def make_rand_vector(dims):
+    vec = [gauss(0, 1) for i in range(dims)]
+    mag = sum(x**2 for x in vec) ** .5
+    return [x/mag for x in vec]
+
+
 class ApprenticeshipCostLearningTrainer(object):
 
     def __init__(self, expert_paths, input_dims, gamma):
         self.dim = input_dims
-        # Initialize the weights as RVs summing to 1
+        # self.weights = np.random.uniform(low=-1.0, high=1.0, size = input_dims)
+        # self.weights = make_rand_vector(input_dims)
+        # self.weights = [-0.63649622, -0.17047543,  0.17078687, -0.7325589 ]
+        # normalize
         self.weights = np.random.dirichlet(np.ones(input_dims)*1, size=1)
         self.weights = self.weights[0]
+        # self.weights = self.weights / (np.linalg.norm(self.weights)+1e-8)
         self.initial_weights = self.weights
         print(self.initial_weights)
         self.gamma = gamma
         # self.agent_fe_data = {}
         self.currentT = float('Inf')
-        self.epsilon = 0.0015 # TODO: Param ?
+        self.epsilon = 0.0001 # TODO: Param ?
         self.expert_fe = []
         self.first_call = True
         self.novice_fe = [] # = mu
@@ -27,18 +40,19 @@ class ApprenticeshipCostLearningTrainer(object):
         self.solved = False
 
 
+    def pseudo_normalize(self, x):
+        return (np.tanh(x)+1.0)/2.0
+
+
     def get_reward(self, obs):
         r = []
-        import math
         for ob in obs:
-            temp_ob = (np.tanh(ob)+1.0)/2.0
+            temp_ob = self.pseudo_normalize(ob/10.0)
             reward = np.dot(self.weights, temp_ob)
-
             # Squash the reward to fit the algorithm's assumptions
-            r.append((np.tanh(reward)+1.0)/2.0)
-
-            # Sanity check
-            assert not math.isnan((np.tanh(reward)+1.0)/2.0)
+            # r.append(self.pseudo_normalize(reward))
+            reward = max(1e-8, reward)
+            r.append(self.pseudo_normalize(reward))
         return r
 
 
@@ -46,8 +60,9 @@ class ApprenticeshipCostLearningTrainer(object):
     def compute_FE(self, path):
         feature_expect = np.zeros(self.dim)
         for i, ob in enumerate(path):
-            temp_ob = (np.tanh(ob)+1.0)/2.0
+            temp_ob = self.pseudo_normalize(ob/10.0)
             feature_expect += (self.gamma**i)*np.array(temp_ob)
+        print(feature_expect)
         return feature_expect
 
 
@@ -79,14 +94,15 @@ class ApprenticeshipCostLearningTrainer(object):
             numerator = np.dot(self.novice_fe[self.iter]-self.novice_fe_bar[self.iter-1],
                         self.expert_fe - self.novice_fe_bar[self.iter-1])
             denominator = np.dot(self.novice_fe[self.iter]-self.novice_fe_bar[self.iter-1],
-                        self.novice_fe[self.iter] - self.novice_fe_bar[self.iter-1])
+                        self.novice_fe[self.iter] - self.novice_fe_bar[self.iter-1]) + 1e-8
             factor = self.novice_fe[self.iter] - self.novice_fe_bar[self.iter-1]
 
             self.novice_fe_bar.append(self.novice_fe_bar[self.iter-1]
                                     + factor * numerator/denominator)
 
             self.weights = self.expert_fe - self.novice_fe_bar[self.iter]
-            self.weights = self.weights/np.linalg.norm(self.weights)
+            self.weights = self.weights/(np.linalg.norm(self.weights) + 1e-8)
+            print(self.weights)
 
             self.currentT = np.linalg.norm(self.expert_fe - self.novice_fe_bar[self.iter])
 
