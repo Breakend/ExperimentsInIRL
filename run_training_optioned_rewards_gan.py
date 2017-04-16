@@ -32,7 +32,7 @@ env = TfEnv(normalize(GymEnv("CartPole-v0", force_reset=True)))
 
 # average results over 10 experiments
 true_rewards = []
-for i in range(5):
+for i in range(2):
     print("Running Experiment %d" % i)
     with tf.variable_scope('sess_%d'%i):
         true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path, args.trained_policy_pickle_path, env, GANCostTrainerWithRewardOptions)

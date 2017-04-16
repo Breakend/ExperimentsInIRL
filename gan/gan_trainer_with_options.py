@@ -44,5 +44,5 @@ class GANCostTrainerWithRewardOptions(object):
 
 class GANCostTrainerWithRewardMixtures(GANCostTrainerWithRewardOptions):
 
-    def __init__(self, input_dims, number_of_options):
+    def __init__(self, input_dims, number_of_options=4):
         super(GANCostTrainerWithRewardMixtures, self).__init__(input_dims, number_of_options, mixtures=True)
