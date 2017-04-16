@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf
 from cvxopt import matrix, solvers
 from scipy.special import expit
-
+from sklearn.preprocessing import PolynomialFeatures
 
 from random import gauss
 
@@ -22,7 +22,10 @@ class ApprenticeshipCostLearningTrainer(object):
         # self.weights = make_rand_vector(input_dims)
         # self.weights = [-0.63649622, -0.17047543,  0.17078687, -0.7325589 ]
         # normalize
-        self.weights = np.random.dirichlet(np.ones(input_dims)*1, size=1)
+        self.poly_augmenter = PolynomialFeatures(degree=2, include_bias=False, interaction_only=True)
+        temp = self.poly_augmenter.fit_transform([0] * input_dims)[0]
+        self.n_features = len(temp)
+        self.weights = np.random.dirichlet(np.ones(self.n_features)*1, size=1)
         self.weights = self.weights[0]
         # self.weights = self.weights / (np.linalg.norm(self.weights)+1e-8)
         self.initial_weights = self.weights
@@ -47,7 +50,8 @@ class ApprenticeshipCostLearningTrainer(object):
     def get_reward(self, obs):
         r = []
         for ob in obs:
-            temp_ob = self.pseudo_normalize(ob/10.0)
+            # temp_ob = self.pseudo_normalize(ob/10.0)
+            temp_ob = self.poly_augmenter.fit_transform((self.pseudo_normalize(ob/10.0)).reshape(1, -1))[0]
             reward = np.dot(self.weights, temp_ob)
             # Squash the reward to fit the algorithm's assumptions
             # r.append(self.pseudo_normalize(reward))
@@ -58,16 +62,15 @@ class ApprenticeshipCostLearningTrainer(object):
 
     '''Unrolls the input path and computes feature expectations'''
     def compute_FE(self, path):
-        feature_expect = np.zeros(self.dim)
+        feature_expect = np.zeros(self.n_features)
         for i, ob in enumerate(path):
-            temp_ob = self.pseudo_normalize(ob/10.0)
+            temp_ob = self.poly_augmenter.fit_transform((self.pseudo_normalize(ob/10.0)).reshape(1, -1))[0]
+            # temp_ob = self.pseudo_normalize(ob/10.0)
             feature_expect += (self.gamma**i)*np.array(temp_ob)
-        print(feature_expect)
         return feature_expect
 
 
     def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=1):
-        # novice_fe = []
         if self.solved:
             sys.exit()
         for path in novice_rollouts_tensor:
