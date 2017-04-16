@@ -24,14 +24,17 @@ class Trainer(object):
         self.concat_timesteps = concat_timesteps
         self.num_frames = num_frames
 
-    def step(self, expert_rollouts, expert_horizon=200, dump_datapoints=False):
+    def step(self, expert_rollouts, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None):
+        
+        if number_of_sample_trajectories is None:
+            number_of_sample_trajectories = len(expert_rollouts)
 
         # collect samples for novice policy
         # TODO: use cost to get rewards based on current cost, that is the rewards returned as part of the Rollouts
         #       will be from the cost function
         # TODO: number of novice trajectories set according to running IRL algorithm
         #       1 for apprenticeship learning (single trajectory)
-        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=1, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
+        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
 
         # import pdb; pdb.set_trace()
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
@@ -45,7 +48,7 @@ class Trainer(object):
             novice_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in novice_rollouts])
             expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
 
-            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
+            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=3, num_frames=self.num_frames)
 
         # This does things like calculate advantages and entropy, etc.
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function

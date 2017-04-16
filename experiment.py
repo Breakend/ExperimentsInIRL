@@ -19,9 +19,7 @@ import tensorflow as tf
 import pickle
 import argparse
 
-def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type):
-    # Clear out cruft from previous experiments, this is kinda hacky but i don't know what else to do
-    # tf.reset_default_graph()
+def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1):
 
     policy = CategoricalMLPPolicy(
     name="policy",
@@ -58,16 +56,12 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     true_rewards = []
     actual_rewards = []
 
-    # if you use dump_datapoints = True for graphing the termination functions, kind of need num_frames to be 1 for now
-    iterations = 30
-    num_frames = 1
-
     with tf.Session() as sess:
 
         cost_trainer = cost_trainer_type([num_frames, obs_dims])
 
         trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo, num_frames=num_frames)
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
 
 
         for iter_step in range(0, iterations):

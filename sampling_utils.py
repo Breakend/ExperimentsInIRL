@@ -53,9 +53,7 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
     env_infos = []
     o = env.reset()
     path_length = 0
-
-    env.render()
-
+    
     while path_length < max_path_length:
         a, agent_info = agent.get_action(o)
         next_o, r, d, env_info = env.step(a)

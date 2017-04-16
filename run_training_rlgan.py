@@ -9,6 +9,7 @@ from rllab.envs.gym_env import GymEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
 from sampling_utils import load_expert_rollouts
 import numpy as np
+import matplotlib.pyplot as plt
 
 from train import Trainer
 from gan.gan_trainer import GANCostTrainer
@@ -28,15 +29,18 @@ env = TfEnv(normalize(GymEnv("CartPole-v0", force_reset=True)))
 
 # average results over 10 experiments
 true_rewards = []
-for i in range(2):
-    true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path, args.trained_policy_pickle_path, env, GANCostTrainer)
-    true_rewards.append(true_rewards_exp)
+for i in range(5):
+    print("Running Experiment %d" % i)
+    with tf.variable_scope('sess_%d'%i):
+        true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path, args.trained_policy_pickle_path, env, GANCostTrainer)
+        true_rewards.append(true_rewards_exp)
 
 avg_true_rewards = np.mean(true_rewards, axis=0)
 
-import matplotlib.pyplot as plt
+true_rewards_variance = np.var(true_rewards, axis=0)
 
-# TODO: probably just dump this and then load them all to generate graphs with all the different agents.
+with open("rlgan_rewards_data.pickle", "wb") as output_file:
+    pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
 fig = plt.figure()
 plt.plot(avg_true_rewards)
@@ -44,5 +48,5 @@ plt.xlabel('Training iterations', fontsize=18)
 plt.ylabel('Average True Reward', fontsize=16)
 # plt.legend()
 fig.suptitle('True Reward over Training Iterations')
-fig.savefig('true_reward_option_gan.png')
+fig.savefig('true_reward_gan.png')
 plt.clf()
