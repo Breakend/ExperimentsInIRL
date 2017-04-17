@@ -29,6 +29,7 @@ parser.add_argument("--num_experiments", default=5, type=int)
 parser.add_argument("--importance_weights", default=0.5, type=float)
 parser.add_argument("--algorithm", default="rlgan")
 parser.add_argument("--env", default="CartPole-v0")
+parser.add_argument("--iterations", default=30, type=int)
 # parser.add_argument("--number_expert_rollouts", default=10, type=int)
 # parser.add_argument("--number_novice_rollouts", default=10, type=int)
 args = parser.parse_args()
@@ -52,7 +53,13 @@ true_rewards = []
 for i in range(args.num_experiments):
     print("Running Experiment %d" % i)
     with tf.variable_scope('sess_%d'%i):
-        true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path, args.trained_policy_pickle_path, env, arg_to_cost_trainer_map[args.algorithm], num_frames=args.num_frames, config=config)
+        true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path,
+                                                              args.trained_policy_pickle_path,
+                                                              env,
+                                                              arg_to_cost_trainer_map[args.algorithm],
+                                                              iterations=args.iterations,
+                                                              num_frames=args.num_frames,
+                                                              config=config)
         true_rewards.append(true_rewards_exp)
 
 avg_true_rewards = np.mean(true_rewards, axis=0)
