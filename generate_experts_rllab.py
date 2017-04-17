@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("env")
 parser.add_argument("expert_rollout_pickle_path")
 args = parser.parse_args()
+tf.set_random_seed(12412)
 
 # stub(globals())
 

@@ -33,8 +33,10 @@ def animate_rollout(env, agent, n_timesteps, collect_images=False, delay=.01):
         #     infos[k].append(v)
         infos['observations'].append(ob)
         infos['rewards'].append(rew)
+        infos['true_rewards'].append(rew)
         infos['action'].append(a)
-        infos['env_infos']
+        infos['env_infos'].append(info)
+        infos['agent_infos'].append(_info)
         if collect_images:
             infos['im_observations'].append(pixel_array)
         # time.sleep(delay)
