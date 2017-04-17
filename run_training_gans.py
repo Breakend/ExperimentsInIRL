@@ -68,7 +68,7 @@ for i in range(args.num_experiments):
 avg_true_rewards = np.mean(true_rewards, axis=0)
 true_rewards_variance = np.var(true_rewards, axis=0)
 
-with open("%s_%s_rewards_data.pickle" % % (args.algorithm, args.env), "wb") as output_file:
+with open("%s_%s_rewards_data.pickle" % (args.algorithm, args.env), "wb") as output_file:
     pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
 #TODO: add variance
