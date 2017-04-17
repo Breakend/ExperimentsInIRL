@@ -88,11 +88,12 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
         if concat_timesteps:
             true_rewards = tensor_utils.stack_tensor_list(rewards)
             obs_pls_three = np.zeros((observations.shape[0], num_frames, observations.shape[1]))
-            for iter_step in range(0, obs_pls_three.shape[0]):  # cant figure out how to do this with indexing.
+            # import pdb; pdb.set_trace()
+            for iter_step in range(0, obs_pls_three.shape[0]):
                 for i in range(num_frames):
                     idx_plus_three = min(iter_step+num_frames, obs_pls_three.shape[0]-1)
                     obs_pls_three[iter_step, i, :] = observations[idx_plus_three, :]
-            rewards = reward_extractor.get_reward(obs_pls_three)#[:, 0]  # this is the prob of being an expert.
+            rewards = reward_extractor.get_reward(obs_pls_three)
         else:
             true_rewards = tensor_utils.stack_tensor_list(rewards)
             rewards = reward_extractor.get_reward(observations)

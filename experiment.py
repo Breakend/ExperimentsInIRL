@@ -50,6 +50,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     # import pdb; pdb.set_trace()
 
     # TODO: hack to generically load dimensions of structuresx
+    # import pdb; pdb.set_trace()
     obs_dims = len(expert_rollouts[0]['observations'][0])
     traj_len = len(expert_rollouts[0]['observations'])
 
