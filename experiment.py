@@ -47,7 +47,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
     # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
     print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['true_rewards']) for p in expert_rollouts]))
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
     # TODO: hack to generically load dimensions of structuresx
     obs_dims = len(expert_rollouts[0]['observations'][0])
