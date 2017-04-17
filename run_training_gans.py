@@ -28,6 +28,7 @@ parser.add_argument("--num_frames", default=4, type=int)
 parser.add_argument("--num_experiments", default=5, type=int)
 parser.add_argument("--importance_weights", default=0.0, type=float)
 parser.add_argument("--algorithm", default="rlgan")
+parser.add_argument("--env", default="CartPole-v0")
 # parser.add_argument("--number_expert_rollouts", default=10, type=int)
 # parser.add_argument("--number_novice_rollouts", default=10, type=int)
 args = parser.parse_args()
@@ -40,7 +41,7 @@ if args.algorithm not in arg_to_cost_trainer_map.keys():
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
-env = TfEnv(normalize(GymEnv("CartPole-v0", force_reset=True)))
+env = TfEnv(normalize(GymEnv(args.env, force_reset=True)))
 
 #TODO: move everything into the config
 config = {}

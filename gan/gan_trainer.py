@@ -14,6 +14,7 @@ class GANCostTrainer(object):
     def dump_datapoints(self, num_frames=4):
         if self.num_frames != 1:
             print("only support graphing internal things with 1 frame concated for now")
+            return
         return
 
     def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=4):

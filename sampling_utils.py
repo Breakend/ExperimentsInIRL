@@ -58,13 +58,14 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
         a, agent_info = agent.get_action(o)
         next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
-        rewards.append(r)
+        if d:
+            rewards.append(0.0)
+        else:
+            rewards.append(r)
         actions.append(env.action_space.flatten(a))
         agent_infos.append(agent_info)
         env_infos.append(env_info)
         path_length += 1
-        # if d:
-        #     break
         o = next_o
         if get_image_observations:
             pixel_array = env.render(mode="rgb_array")

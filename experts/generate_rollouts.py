@@ -26,7 +26,8 @@ def animate_rollout(env, agent, n_timesteps, collect_images=False, delay=.01):
             import pdb; pdb.set_trace()
         if done:
             print("terminated after %s timesteps"%i)
-            break
+            rew = 0
+            # break
         # TODO: not sure why this was here in the first place.
         # for (k,v) in info.items():
         #     infos[k].append(v)

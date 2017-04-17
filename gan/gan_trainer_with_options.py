@@ -17,6 +17,7 @@ class GANCostTrainerWithRewardOptions(object):
     def dump_datapoints(self, num_frames=4):
         if num_frames != 1:
             print("only support graphing internal things with 1 frame concated for now")
+            return
         self.disc.output_termination_activations(num_frames)
         return
 
