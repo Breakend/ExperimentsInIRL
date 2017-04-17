@@ -58,7 +58,7 @@ for i in range(args.num_experiments):
 avg_true_rewards = np.mean(true_rewards, axis=0)
 true_rewards_variance = np.var(true_rewards, axis=0)
 
-with open("optioned_rewards_data.pickle", "wb") as output_file:
+with open("%s_rewards_data.pickle" % args.algorithm, "wb") as output_file:
     pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
 #TODO: add variance
@@ -73,5 +73,5 @@ plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_reward-true_rewards_
 plt.ylabel('Average True Reward', fontsize=16)
 # plt.legend()
 fig.suptitle('True Reward over Training Iterations')
-fig.savefig('true_reward_option_gan.png')
+fig.savefig('true_reward_option_%s.png' % args.algorithm)
 plt.clf()

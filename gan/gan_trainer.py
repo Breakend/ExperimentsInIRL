@@ -12,7 +12,7 @@ class GANCostTrainer(object):
         return self.disc.eval(samples)[:, 0]
 
     def dump_datapoints(self, num_frames=4):
-        if self.num_frames != 1:
+        if num_frames != 1:
             print("only support graphing internal things with 1 frame concated for now")
             return
         return
