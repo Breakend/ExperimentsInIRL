@@ -1,3 +1,6 @@
+import matplotlib as mpl
+mpl.use('Agg')
+
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.normalized_env import normalize
@@ -65,7 +68,7 @@ for i in range(args.num_experiments):
 avg_true_rewards = np.mean(true_rewards, axis=0)
 true_rewards_variance = np.var(true_rewards, axis=0)
 
-with open("%s_rewards_data.pickle" % args.algorithm, "wb") as output_file:
+with open("%s_%s_rewards_data.pickle" % % (args.algorithm, args.env), "wb") as output_file:
     pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
 #TODO: add variance
@@ -73,12 +76,12 @@ with open("%s_rewards_data.pickle" % args.algorithm, "wb") as output_file:
 fig = plt.figure()
 plt.plot(avg_true_rewards)
 plt.xlabel('Training iterations', fontsize=18)
-plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_reward-true_rewards_variance, avg_true_reward+true_rewards_variance,
+plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_variance, avg_true_rewards+true_rewards_variance,
     alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
     linewidth=4, linestyle='dashdot', antialiased=True)
 
 plt.ylabel('Average True Reward', fontsize=16)
 # plt.legend()
 fig.suptitle('True Reward over Training Iterations')
-fig.savefig('true_reward_option_%s.png' % args.algorithm)
+fig.savefig('true_reward_option_%s_%s.png' % (args.algorithm, args.env))
 plt.clf()
