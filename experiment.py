@@ -24,8 +24,8 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     policy = CategoricalMLPPolicy(
     name="policy",
     env_spec=env.spec,
-    # The neural network policy should have two hidden layers, each with 32 hidden units.
-    hidden_sizes=(32, 32)
+    # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+    hidden_sizes=(100, 100)
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -40,7 +40,6 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         discount=0.99,
         step_size=0.01,
         optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
-
     )
 
     expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
@@ -50,6 +49,11 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         expert_rollouts = expert_rollouts[:rollouts_to_use]
         print("Only using %d expert rollouts" % rollouts_to_use)
 
+    if "num_novice_rollouts" in config:
+        number_of_sample_trajectories = config["num_novice_rollouts"]
+    else:
+        number_of_sample_trajectories = None
+
     # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
     print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['true_rewards']) for p in expert_rollouts]))
     # import pdb; pdb.set_trace()
@@ -58,6 +62,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     # import pdb; pdb.set_trace()
     obs_dims = len(expert_rollouts[0]['observations'][0])
     traj_len = len(expert_rollouts[0]['observations'])
+
 
     # import pdb; pdb.set_trace()
     true_rewards = []
@@ -73,7 +78,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
         for iter_step in range(0, iterations):
             dump_data = (iter_step == (iterations-1)) # is last iteration
-            true_reward, actual_reward = trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=dump_data)
+            true_reward, actual_reward = trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=dump_data, config=config)
             true_rewards.append(true_reward)
             actual_rewards.append(actual_reward)
 

@@ -14,6 +14,9 @@ from sampling_utils import load_expert_rollouts
 import numpy as np
 import matplotlib.pyplot as plt
 
+from rllab.misc import ext
+ext.set_seed(0)
+
 
 from train import Trainer
 from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
@@ -34,7 +37,7 @@ parser.add_argument("--algorithm", default="rlgan")
 parser.add_argument("--env", default="CartPole-v0")
 parser.add_argument("--iterations", default=30, type=int)
 parser.add_argument("--num_expert_rollouts", default=20, type=int)
-# parser.add_argument("--number_novice_rollouts", default=10, type=int)
+parser.add_argument("--num_novice_rollouts", default=100, type=int)
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -45,12 +48,15 @@ if args.algorithm not in arg_to_cost_trainer_map.keys():
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
-env = TfEnv(normalize(GymEnv(args.env, force_reset=True)))
+gymenv = GymEnv(args.env, force_reset=True)
+gymenv.env.seed(0)
+env = TfEnv(normalize(gymenv))
 
 #TODO: move everything into the config
 config = {}
 config["importance_weights"] = args.importance_weights
 config["num_expert_rollouts"] = args.num_expert_rollouts
+config["num_novice_rollouts"] = args.num_novice_rollouts
 
 # average results over 10 experiments
 true_rewards = []
@@ -68,8 +74,9 @@ for i in range(args.num_experiments):
 
 avg_true_rewards = np.mean(true_rewards, axis=0)
 true_rewards_variance = np.var(true_rewards, axis=0)
+true_rewards_std = np.sqrt(true_rewards_variance, axis=0)
 
-with open("%s_%s_rewards_data.pickle" % (args.algorithm, args.env), "wb") as output_file:
+with open("%s_%s_i%f_e%d_rewards_data.pickle" % (args.algorithm, args.importance_weights, args.env, args.num_experiments), "wb") as output_file:
     pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
 #TODO: add variance
@@ -77,12 +84,12 @@ with open("%s_%s_rewards_data.pickle" % (args.algorithm, args.env), "wb") as out
 fig = plt.figure()
 plt.plot(avg_true_rewards)
 plt.xlabel('Training iterations', fontsize=18)
-plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_variance, avg_true_rewards+true_rewards_variance,
+plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
     alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
     linewidth=4, linestyle='dashdot', antialiased=True)
 
 plt.ylabel('Average True Reward', fontsize=16)
 # plt.legend()
 fig.suptitle('True Reward over Training Iterations')
-fig.savefig('true_reward_option_%s_%s.png' % (args.algorithm, args.env))
+fig.savefig('true_reward_option_%s_%s_i%f_e%d.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments))
 plt.clf()

@@ -1,14 +1,18 @@
 import numpy as np
 
-def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=200):
+def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4):
     """
     Takes in expert_data as, on_policy_data, expert_fail_data as a stacked tensor of just the observation data
     #TODO: removed faildata? is this necessary?
     """
     # import pdb; pdb.set_trace()
-    n_trajs = len(expert_data)
+    n_trajs_exp = len(expert_data)
+    n_trajs_nov = len(on_policy_data)
+
     # TODO: for images should be nxmxc
     feature_space = len(expert_data[0][0]) # number of features in the observation data
+    # import pdb; pdb.set_trace()
+    horizon = expert_data.shape[1] # length of trajectory
 
 
     data = np.vstack([expert_data, on_policy_data])
@@ -16,8 +20,8 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=
     e_10[0] = 1
     e_01 = np.zeros((2,))
     e_01[1] = 1
-    expert_classes = np.tile(e_10, (n_trajs, horizon, 1))
-    novice_classes = np.tile(e_01, (n_trajs, horizon, 1))
+    expert_classes = np.tile(e_10, (n_trajs_exp, horizon, 1))
+    novice_classes = np.tile(e_01, (n_trajs_nov, horizon, 1))
     # import pdb; pdb.set_trace()
     classes = np.vstack([expert_classes, novice_classes])
     # domains = np.vstack([expert_data['domains'], on_policy_data['domains'], expert_fail_data['domains']])

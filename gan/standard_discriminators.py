@@ -155,6 +155,10 @@ class ConvStateBasedDiscriminator(Discriminator):
 
         conv_layer_1 = self.conv1d(vec=conv_layer_0, w=weights['wc2'], b=biases['bc2'])
 
+        conv_layer_0 = tf.layers.conv1d(nn_input, filters=5, kernel_size=3, strides=1, padding='same')
+        # Don't need to max pool? state space too small?
+        conv_layer_1 = tf.layers.conv1d(conv_layer_0, filters=5, kernel_size=3, strides=1, padding='same')
+
         # conv_layer_1 = self.max_pool(conv_layer_1, k=pool_size)
 
         conv_out_flat = tf.reshape(conv_layer_1, [-1, conv_out_size])
@@ -164,7 +168,6 @@ class ConvStateBasedDiscriminator(Discriminator):
         loss, optimizer = self.get_loss_layer(pred=fc_output, target_output=target)
 
         self.class_target = target
-        self.weights = weights
         self.nn_input = nn_input
         self.discrimination_logits = fc_output
         self.optimizer = optimizer
@@ -223,23 +226,26 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
         # first_dense_size = conv_out_size
 
         # Store layers weight & bias
-        weights = {
-            'wc1': self.get_xavier_weights([filter_size, dim_input[1], num_filters[0]], (pool_size, pool_size)),
-        # 5x5 conv, 1 input, 32 outputs
-            'wc2': self.get_xavier_weights([filter_size, num_filters[0], num_filters[1]], (pool_size, pool_size)),
-        # 5x5 conv, 32 inputs, 64 outputs
-        }
+        # weights = {
+        #     'wc1': self.get_xavier_weights([filter_size, dim_input[1], num_filters[0]], (pool_size, pool_size)),
+        # # 5x5 conv, 1 input, 32 outputs
+        #     'wc2': self.get_xavier_weights([filter_size, num_filters[0], num_filters[1]], (pool_size, pool_size)),
+        # # 5x5 conv, 32 inputs, 64 outputs
+        # }
+        #
+        # biases = {
+        #     'bc1': self.init_bias([num_filters[0]]),
+        #     'bc2': self.init_bias([num_filters[1]]),
+        # }
 
-        biases = {
-            'bc1': self.init_bias([num_filters[0]]),
-            'bc2': self.init_bias([num_filters[1]]),
-        }
-
-        conv_layer_0 = self.conv1d(vec=nn_input, w=weights['wc1'], b=biases['bc1'])
+        conv_layer_0 = tf.layers.conv1d(nn_input, filters=5, kernel_size=3, strides=1, padding='same')
+        # Don't need to max pool? state space too small?
+        conv_layer_1 = tf.layers.conv1d(conv_layer_0, filters=5, kernel_size=3, strides=1, padding='same')
+        # conv_layer_0 = self.conv1d(vec=nn_input, w=weights['wc1'], b=biases['bc1'])
 
         # conv_layer_0 = self.max_pool(conv_layer_0, k=pool_size)
 
-        conv_layer_1 = self.conv1d(vec=conv_layer_0, w=weights['wc2'], b=biases['bc2'])
+        # conv_layer_1 = self.conv1d(vec=conv_layer_0, w=weights['wc2'], b=biases['bc2'])
 
         # conv_layer_1 = self.max_pool(conv_layer_1, k=pool_size)
 
@@ -250,7 +256,6 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
         # loss, optimizer = self.get_loss_layer(pred=fc_output, target_output=target)
 
         self.class_target = target
-        self.weights = weights
         self.nn_input = nn_input
         self.discrimination_logits = fc_output
         # self.optimizer = optimizer
