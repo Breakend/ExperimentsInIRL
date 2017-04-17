@@ -45,6 +45,11 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
     expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
 
+    if "num_expert_rollouts" in config:
+        rollouts_to_use = min(config["num_expert_rollouts"], len(expert_rollouts))
+        expert_rollouts = expert_rollouts[:rollouts_to_use]
+        print("Only using %d expert rollouts" % rollouts_to_use)
+
     # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
     print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['true_rewards']) for p in expert_rollouts]))
     # import pdb; pdb.set_trace()

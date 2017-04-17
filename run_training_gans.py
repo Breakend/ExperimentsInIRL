@@ -33,7 +33,7 @@ parser.add_argument("--importance_weights", default=0.5, type=float)
 parser.add_argument("--algorithm", default="rlgan")
 parser.add_argument("--env", default="CartPole-v0")
 parser.add_argument("--iterations", default=30, type=int)
-# parser.add_argument("--number_expert_rollouts", default=10, type=int)
+parser.add_argument("--num_expert_rollouts", default=20, type=int)
 # parser.add_argument("--number_novice_rollouts", default=10, type=int)
 args = parser.parse_args()
 
@@ -50,6 +50,7 @@ env = TfEnv(normalize(GymEnv(args.env, force_reset=True)))
 #TODO: move everything into the config
 config = {}
 config["importance_weights"] = args.importance_weights
+config["num_expert_rollouts"] = args.num_expert_rollouts
 
 # average results over 10 experiments
 true_rewards = []
