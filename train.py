@@ -54,7 +54,7 @@ class Trainer(object):
 
         # import pdb; pdb.set_trace()
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
-        print("Actual Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
+        print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
 
         # if we're using a cost trainer train it?
         if self.cost_trainer:
@@ -75,13 +75,27 @@ class Trainer(object):
         # TODO: put this in a config provider or something?
         if "policy_opt_steps_per_global_step" in config:
             policy_opt_epochs = config["policy_opt_steps_per_global_step"]
+            learning_schedule = False
         else:
+            learning_schedule = False
             policy_opt_epochs = 1
+
+        if "policy_opt_learning_schedule" in config:
+            learning_schedule = config["policy_opt_learning_schedule"]
 
         print("Number of policy opt epochs %d" % policy_opt_epochs)
 
-        for i in range(policy_opt_epochs):
+        if learning_schedule:
+            # override the policy epochs for larger number of iterations
+            policy_opt_epochs *= 2**int(self.iteration/50)
+            print("increasing policy opt epochs to %d" % policy_opt_epochs )
+
+        for i in range(min(policy_opt_epochs, 10)):
             # import pdb; pdb.set_trace()
+            if i > 1:
+                novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
+                policy_training_samples = self.sampler.process_samples(itr=self.iteration, paths=novice_rollouts)
+
             self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
             self.iteration += 1
 

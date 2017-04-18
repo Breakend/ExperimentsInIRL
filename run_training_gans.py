@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from rllab.misc import ext
-ext.set_seed(0)
+ext.set_seed(1)
 
 
 from train import Trainer
@@ -40,6 +40,7 @@ parser.add_argument("--iterations", default=30, type=int)
 parser.add_argument("--num_expert_rollouts", default=20, type=int)
 parser.add_argument("--num_novice_rollouts", default=20, type=int)
 parser.add_argument("--policy_opt_steps_per_global_step", default=1, type=int)
+parser.add_argument("--policy_opt_learning_schedule", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -54,7 +55,7 @@ if args.algorithm not in arg_to_cost_trainer_map.keys():
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
 gymenv = GymEnv(args.env, force_reset=True)
-gymenv.env.seed(0)
+gymenv.env.seed(1)
 env = TfEnv(normalize(gymenv))
 
 #TODO: don't do this, should just eat args into config
@@ -63,6 +64,7 @@ config["importance_weights"] = args.importance_weights
 config["num_expert_rollouts"] = args.num_expert_rollouts
 config["num_novice_rollouts"] = args.num_novice_rollouts
 config["policy_opt_steps_per_global_step"] = args.policy_opt_steps_per_global_step
+config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
 
 # average results over 10 experiments
 true_rewards = []
@@ -78,24 +80,26 @@ for i in range(args.num_experiments):
                                                               config=config)
         true_rewards.append(true_rewards_exp)
 
-avg_true_rewards = np.mean(true_rewards, axis=0)
-true_rewards_variance = np.var(true_rewards, axis=0)
-true_rewards_std = np.sqrt(true_rewards_variance)
+    avg_true_rewards = np.mean(true_rewards, axis=0)
+    true_rewards_variance = np.var(true_rewards, axis=0)
+    true_rewards_std = np.sqrt(true_rewards_variance)
 
-with open("%s_%s_i%f_e%d_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments), "wb") as output_file:
-    pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
+    lr_flag = "lrschedule" if args.policy_opt_learning_schedule else "nolrschedule"
 
-#TODO: add variance
+    with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.expert_rollouts, args.novice_rollouts, lr_flag), "wb") as output_file:
+        pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
-fig = plt.figure()
-plt.plot(avg_true_rewards)
-plt.xlabel('Training iterations', fontsize=18)
-plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
-    alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
-    linewidth=4, linestyle='dashdot', antialiased=True)
+    #TODO: add variance
 
-plt.ylabel('Average True Reward', fontsize=16)
-# plt.legend()
-fig.suptitle('True Reward over Training Iterations')
-fig.savefig('true_reward_option_%s_%s_i%f_e%d.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments))
-plt.clf()
+    fig = plt.figure()
+    plt.plot(avg_true_rewards)
+    plt.xlabel('Training iterations', fontsize=18)
+    plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
+        alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
+        linewidth=4, linestyle='dashdot', antialiased=True)
+
+    plt.ylabel('Average True Reward', fontsize=16)
+    # plt.legend()
+    fig.suptitle('True Reward over Training Iterations')
+    fig.savefig('true_reward_option_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.expert_rollouts, args.novice_rollouts, lr_flag))
+    plt.clf()
