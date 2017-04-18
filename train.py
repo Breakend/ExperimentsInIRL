@@ -73,8 +73,8 @@ class Trainer(object):
 
         # optimize the novice policy by one step
         # TODO: put this in a config provider or something?
-        if "num_policy_opt_epochs" in config:
-            policy_opt_epochs = config["num_policy_opt_epochs"]
+        if "policy_opt_steps_per_global_step" in config:
+            policy_opt_epochs = config["policy_opt_steps_per_global_step"]
         else:
             policy_opt_epochs = 1
 

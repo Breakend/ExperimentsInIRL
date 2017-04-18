@@ -21,6 +21,7 @@ ext.set_seed(0)
 from train import Trainer
 from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
 from gan.gan_trainer import GANCostTrainer
+from gan.wgan_trainer import WGANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions, GANCostTrainerWithRewardMixtures
 
 from experiment import *
@@ -37,11 +38,15 @@ parser.add_argument("--algorithm", default="rlgan")
 parser.add_argument("--env", default="CartPole-v0")
 parser.add_argument("--iterations", default=30, type=int)
 parser.add_argument("--num_expert_rollouts", default=20, type=int)
-parser.add_argument("--num_novice_rollouts", default=100, type=int)
+parser.add_argument("--num_novice_rollouts", default=20, type=int)
+parser.add_argument("--policy_opt_steps_per_global_step", default=1, type=int)
 args = parser.parse_args()
 
 # TODO: clean this up
-arg_to_cost_trainer_map = {"rlgan" : GANCostTrainer, "optiongan" : GANCostTrainerWithRewardOptions, "mixgan" : GANCostTrainerWithRewardMixtures}
+arg_to_cost_trainer_map = {"rlgan" : GANCostTrainer,
+                           "optiongan" : GANCostTrainerWithRewardOptions,
+                           "mixgan" : GANCostTrainerWithRewardMixtures,
+                           "wgan": WGANCostTrainer}
 
 if args.algorithm not in arg_to_cost_trainer_map.keys():
     raise Exception("Algorithm not supported must be one of " + arg_to_cost_trainer_map.keys())
@@ -52,11 +57,12 @@ gymenv = GymEnv(args.env, force_reset=True)
 gymenv.env.seed(0)
 env = TfEnv(normalize(gymenv))
 
-#TODO: move everything into the config
+#TODO: don't do this, should just eat args into config
 config = {}
 config["importance_weights"] = args.importance_weights
 config["num_expert_rollouts"] = args.num_expert_rollouts
 config["num_novice_rollouts"] = args.num_novice_rollouts
+config["policy_opt_steps_per_global_step"] = args.policy_opt_steps_per_global_step
 
 # average results over 10 experiments
 true_rewards = []
@@ -74,9 +80,9 @@ for i in range(args.num_experiments):
 
 avg_true_rewards = np.mean(true_rewards, axis=0)
 true_rewards_variance = np.var(true_rewards, axis=0)
-true_rewards_std = np.sqrt(true_rewards_variance, axis=0)
+true_rewards_std = np.sqrt(true_rewards_variance)
 
-with open("%s_%s_i%f_e%d_rewards_data.pickle" % (args.algorithm, args.importance_weights, args.env, args.num_experiments), "wb") as output_file:
+with open("%s_%s_i%f_e%d_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments), "wb") as output_file:
     pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
 #TODO: add variance

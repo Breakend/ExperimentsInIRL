@@ -189,10 +189,11 @@ class ConvStateBasedDiscriminator(Discriminator):
 class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, nn_input, target, dim_output=2):
-        super(ConvStateBasedDiscriminatorWithExternalIO, self).__init__(input_dim)
-        self.make_network(input_dim, dim_output, nn_input, target)
-        self.init_tf()
+    def __init__(self, input_dim, nn_input, target, dim_output=2, scope="external", tf_sess=None):
+        with tf.variable_scope(scope):
+            super(ConvStateBasedDiscriminatorWithExternalIO, self).__init__(input_dim, tf_sess=tf_sess)
+            self.make_network(input_dim, dim_output, nn_input, target)
+            self.init_tf()
 
     def get_lab_accuracy(self, data, class_labels):
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
@@ -238,9 +239,9 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
         #     'bc2': self.init_bias([num_filters[1]]),
         # }
 
-        conv_layer_0 = tf.layers.conv1d(nn_input, filters=5, kernel_size=3, strides=1, padding='same')
+        conv_layer_0 = tf.layers.conv1d(nn_input, filters=5, kernel_size=3, strides=1, padding='same', name="conv0")
         # Don't need to max pool? state space too small?
-        conv_layer_1 = tf.layers.conv1d(conv_layer_0, filters=5, kernel_size=3, strides=1, padding='same')
+        conv_layer_1 = tf.layers.conv1d(conv_layer_0, filters=5, kernel_size=3, strides=1, padding='same', name="conv1")
         # conv_layer_0 = self.conv1d(vec=nn_input, w=weights['wc1'], b=biases['bc1'])
 
         # conv_layer_0 = self.max_pool(conv_layer_0, k=pool_size)
@@ -327,7 +328,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             # self.termination_softmax_logits = tf.one_hot(tf.nn.top_k(self.termination_softmax_logits).indices, tf.shape(self.termination_softmax_logits)[0])
 
         for i in range(self.num_options):
-            discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target))
+            discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, scope="option%d"%i))
 
         # try to make the weights sparse so we dropout features
         if self.use_l1_loss:
