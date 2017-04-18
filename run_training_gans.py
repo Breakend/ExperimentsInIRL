@@ -86,7 +86,7 @@ for i in range(args.num_experiments):
 
     lr_flag = "lrschedule" if args.policy_opt_learning_schedule else "nolrschedule"
 
-    with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.expert_rollouts, args.novice_rollouts, lr_flag), "wb") as output_file:
+    with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag), "wb") as output_file:
         pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
     #TODO: add variance
@@ -101,5 +101,5 @@ for i in range(args.num_experiments):
     plt.ylabel('Average True Reward', fontsize=16)
     # plt.legend()
     fig.suptitle('True Reward over Training Iterations')
-    fig.savefig('true_reward_option_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.expert_rollouts, args.novice_rollouts, lr_flag))
+    fig.savefig('true_reward_option_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
     plt.clf()
