@@ -4,6 +4,7 @@ from .utils import *
 import numpy as np
 
 class WGANCostTrainer(object):
+    # This is some attempt at trying to do Wasserstein stuffffff?
 
     def __init__(self, input_dims, config={}):
         # input_dims is the size of the feature vectors

@@ -18,7 +18,6 @@ class GANCostTrainer(object):
         return
 
     def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=4):
-        # import pdb; pdb.set_trace()
         data_matrix, class_matrix = shuffle_to_training_data(expert_rollouts_tensor, novice_rollouts_tensor, num_frames=num_frames)
         self._train_cost(data_matrix, number_epochs, class_matrix)
 

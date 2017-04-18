@@ -26,14 +26,27 @@ class Discriminator(object):
     def make_network(self, dim_input, output_dim_class, output_dim_dom):
         raise NotImplementedError
 
+    def compute_pos_weight(self, targets_batch):
+        summs = np.sum(targets_batch, axis=0)
+        pos_samples = summs[0]
+        neg_samples = summs[1]
+        if pos_samples <= 0:
+            ratio = 0.0
+        else:
+            ratio = np.float32(neg_samples)/np.float32(pos_samples)
+        # print(ratio)
+        return ratio
+
     def train(self, data_batch, targets_batch):
-        cost = self.sess.run([self.optimizer, self.loss], feed_dict={self.nn_input: data_batch,
+        cost = self.sess.run([self.optimizer, self.loss], feed_dict={
+                                                                     self.pos_weighting: self.compute_pos_weight(targets_batch),
+                                                                     self.nn_input: data_batch,
                                                                      self.class_target: targets_batch})[1]
         return cost
 
     def eval(self, data, softmax=True):
         if softmax is True:
-            logits = tf.nn.softmax(self.discrimination_logits)
+            logits = tf.nn.sigmoid(self.discrimination_logits)
         else:
             logits = self.discrimination_logits
         # import pdb; pdb.set_trace()
@@ -91,7 +104,10 @@ class Discriminator(object):
         #return tf.Variable(tf.random_normal(filter_shape, mean=0.01, stddev=0.001, dtype=tf.float32))
 
     def get_loss_layer(self, pred, target_output):
-        cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=target_output))
+        # http://stackoverflow.com/questions/40698709/tensorflow-interpretation-of-weight-in-weighted-cross-entropy
+        self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
+        cross_entropy = tf.nn.weighted_cross_entropy_with_logits(logits=pred, targets=target_output, pos_weight=self.pos_weighting)
+        cost = tf.reduce_mean(cross_entropy)
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
         return cost, optimizer
 
@@ -173,7 +189,7 @@ class ConvStateBasedDiscriminator(Discriminator):
         self.optimizer = optimizer
         self.loss = loss
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
-                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
+                          tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
     @staticmethod
@@ -262,7 +278,7 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
         # self.optimizer = optimizer
         # self.loss = loss
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
-                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
+                          tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
     @staticmethod
@@ -358,7 +374,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         self.loss += importance_weight*tf.nn.l2_loss(cv)
 
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
-                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
+                          tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
         # Why do this? apply these termination functions as termination functions for policy options?

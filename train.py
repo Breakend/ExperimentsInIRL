@@ -64,7 +64,7 @@ class Trainer(object):
             novice_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in novice_rollouts])
             expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
 
-            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=3, num_frames=self.num_frames)
+            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
 
         # This does things like calculate advantages and entropy, etc.
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
@@ -93,7 +93,7 @@ class Trainer(object):
 
         for i in range(policy_opt_epochs):
             # import pdb; pdb.set_trace()
-            if i > 1:
+            if i >= 1:
                 novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
                 policy_training_samples = self.sampler.process_samples(itr=self.iteration, paths=novice_rollouts)
 
