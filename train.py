@@ -87,7 +87,7 @@ class Trainer(object):
 
         if learning_schedule:
             # override the policy epochs for larger number of iterations
-            policy_opt_epochs *= 2**int(self.iteration/50)
+            policy_opt_epochs *= 2**int(self.iteration/100)
             policy_opt_epochs = min(policy_opt_epochs, 5)
             print("increasing policy opt epochs to %d" % policy_opt_epochs )
 
