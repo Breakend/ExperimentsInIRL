@@ -88,9 +88,10 @@ class Trainer(object):
         if learning_schedule:
             # override the policy epochs for larger number of iterations
             policy_opt_epochs *= 2**int(self.iteration/50)
+            policy_opt_epochs = min(policy_opt_epochs, 5)
             print("increasing policy opt epochs to %d" % policy_opt_epochs )
 
-        for i in range(min(policy_opt_epochs, 10)):
+        for i in range(policy_opt_epochs):
             # import pdb; pdb.set_trace()
             if i > 1:
                 novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
