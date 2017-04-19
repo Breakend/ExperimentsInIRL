@@ -9,7 +9,10 @@ class GANCostTrainer(object):
         self.disc = ConvStateBasedDiscriminator(input_dims)
 
     def get_reward(self, samples):
-        return self.disc.eval(samples)[0].T[0]
+        # import pdb; pdb.set_trace()
+        r = self.disc.eval(samples)[:, 0]
+        # print(np.sum(r))
+        return r
 
     def dump_datapoints(self, num_frames=4):
         if num_frames != 1:

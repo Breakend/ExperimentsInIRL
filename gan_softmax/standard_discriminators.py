@@ -28,12 +28,12 @@ class Discriminator(object):
 
     def compute_pos_weight(self, targets_batch):
         summs = np.sum(targets_batch, axis=0)
-        pos_samples = summs
-        neg_samples = targets_batch.shape[0] - pos_samples
+        pos_samples = summs[0]
+        neg_samples = summs[1]
         if pos_samples <= 0:
             ratio = 0.0
         else:
-            ratio = (np.float32(neg_samples)/np.float32(pos_samples))[0]
+            ratio = (np.float32(neg_samples)/np.float32(targets_batch.shape[0]))
         # print(ratio)
         # import pdb; pdb.set_trace()
         return ratio
@@ -47,7 +47,7 @@ class Discriminator(object):
 
     def eval(self, data, softmax=True):
         if softmax is True:
-            logits = tf.nn.sigmoid(self.discrimination_logits)
+            logits = tf.nn.softmax(self.discrimination_logits)
         else:
             logits = self.discrimination_logits
         # import pdb; pdb.set_trace()
@@ -107,17 +107,21 @@ class Discriminator(object):
     def get_loss_layer(self, pred, target_output):
         # http://stackoverflow.com/questions/40698709/tensorflow-interpretation-of-weight-in-weighted-cross-entropy
         self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
+        # import pdb; pdb.set_trace()
 
-        cross_entropy = tf.nn.weighted_cross_entropy_with_logits(logits=pred, targets=target_output, pos_weight=self.pos_weighting)
-        cost = tf.reduce_mean(cross_entropy)
+        class_weight = [[self.pos_weighting, 1.0 - self.pos_weighting]]
+        weight_per_label = tf.transpose(tf.matmul(target_output,tf.transpose(class_weight) ))
+
+        # cross_entropy = tf.nn.weighted_cross_entropy_with_logits(logits=pred, targets=target_output, pos_weight=self.pos_weighting)
+        xent = tf.multiply(weight_per_label, tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=target_output, name="xent_raw")) #shape [1, batch_size]
+        cost = tf.reduce_mean(xent)
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
         return cost, optimizer
-
 
 class ConvStateBasedDiscriminator(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, dim_output=1):
+    def __init__(self, input_dim, dim_output=2):
         super(ConvStateBasedDiscriminator, self).__init__(input_dim)
         self.make_network(dim_input=input_dim, dim_output=dim_output)
         self.init_tf()
@@ -190,12 +194,13 @@ class ConvStateBasedDiscriminator(Discriminator):
         self.discrimination_logits = fc_output
         self.optimizer = optimizer
         self.loss = loss
-        label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
-
+        # label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
+        label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
+                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
     @staticmethod
-    def get_input_layer(num_frames, state_size, dim_output=1):
+    def get_input_layer(num_frames, state_size, dim_output=2):
         """produce the placeholder inputs that are used to run ops forward and backwards.
         net_input: usually an observation.
         action: mu, the ground truth actions we're trying to learn.
@@ -207,7 +212,7 @@ class ConvStateBasedDiscriminator(Discriminator):
 class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, nn_input, target, dim_output=1, scope="external", tf_sess=None):
+    def __init__(self, input_dim, nn_input, target, dim_output=2, scope="external", tf_sess=None):
         with tf.variable_scope(scope):
             super(ConvStateBasedDiscriminatorWithExternalIO, self).__init__(input_dim, tf_sess=tf_sess)
             self.make_network(input_dim, dim_output, nn_input, target)
@@ -280,11 +285,11 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
         # self.optimizer = optimizer
         # self.loss = loss
         label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
-                          tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))
+                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
     @staticmethod
-    def get_input_layer(num_frames, state_size, dim_output=1):
+    def get_input_layer(num_frames, state_size, dim_output=2):
         """produce the placeholder inputs that are used to run ops forward and backwards.
         net_input: usually an observation.
         action: mu, the ground truth actions we're trying to learn.
@@ -303,7 +308,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         self.config = config
         self.use_l1_loss = False
         self.input_dim = input_dim
-        self.make_network(dim_input=input_dim, dim_output=1, mixtures=mixtures)
+        self.make_network(dim_input=input_dim, dim_output=2, mixtures=mixtures)
         self.init_tf()
 
     def get_lab_accuracy(self, data, class_labels):
@@ -375,9 +380,9 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             importance_weight = 0.00
         self.loss += importance_weight*tf.nn.l2_loss(cv)
 
-        # label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
-        #                   tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))
-        label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
+        label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
+                          tf.argmax(tf.nn.softmax(self.discrimination_logits), 1))
+        # label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
 
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
@@ -422,7 +427,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             plt.clf()
 
     @staticmethod
-    def get_input_layer(num_frames, state_size, dim_output=1):
+    def get_input_layer(num_frames, state_size, dim_output=2):
         """produce the placeholder inputs that are used to run ops forward and backwards.
         net_input: usually an observation.
         action: mu, the ground truth actions we're trying to learn.
