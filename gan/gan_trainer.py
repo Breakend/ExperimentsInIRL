@@ -12,6 +12,7 @@ class GANCostTrainer(object):
         # import pdb; pdb.set_trace()
         r = self.disc.eval(samples)[:, 0]
         # print(np.sum(r))
+        # print(r)
         return r
 
     def dump_datapoints(self, num_frames=4):

@@ -13,9 +13,9 @@ from rllab.misc import tensor_utils
 
 
 from train import Trainer
-from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
-from gan.gan_trainer import GANCostTrainer
-from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
+# from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
+# from gan.gan_trainer import GANCostTrainer
+# from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
 
 import tensorflow as tf
 import pickle
@@ -77,12 +77,13 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
     oversample = True
     expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
-    expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
+    expert_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, traj_len, mode='last') for a in expert_rollouts_tensor])
+    # expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
 
     if oversample:
         oversample_rate = int(number_of_sample_trajectories / len(expert_rollouts_tensor))
-        print("oversampling %d times" % oversample_rate)
         expert_rollouts_tensor = expert_rollouts_tensor.repeat(oversample_rate, axis=0)
+        print("oversampling %d times to %d" % (oversample_rate, len(expert_rollouts_tensor)))
 
 
     with tf.Session() as sess:

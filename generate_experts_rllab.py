@@ -18,14 +18,15 @@ from rllab.misc import ext
 parser = argparse.ArgumentParser()
 parser.add_argument("env")
 parser.add_argument("expert_rollout_pickle_path")
+parser.add_argument("num_iters", type=int)
 args = parser.parse_args()
 
 # stub(globals())
-
-supported_envs = ["MountainCar-v0", "CartPole-v0"]
-
-if args.env not in supported_envs:
-    raise Exception("Env not supported! Try it out though?")
+#
+# supported_envs = ["MountainCar-v0", "CartPole-v0"]
+#
+# if args.env not in supported_envs:
+#     raise Exception("Env not supported! Try it out though?")
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
@@ -42,7 +43,7 @@ hidden_sizes=(32, 32)
 
 baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-iters = 180
+iters = args.num_iters
 
 algo = TRPO(
     env=env,

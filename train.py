@@ -27,6 +27,11 @@ class Trainer(object):
         # self.sampler = BaseSampler(self.novice_policy_optimizer)
         self.concat_timesteps = concat_timesteps
         self.num_frames = num_frames
+        self.replay_buffer = {}
+        self.max_replays = 3
+        self.replay_index = 0
+        self.replay_times = 40
+        self.train_cost_per_iters = 10
 
         # as in traditional GANs, we add failure noise
         self.noise_fail_policy = UniformControlPolicy(env.spec)
@@ -54,6 +59,7 @@ class Trainer(object):
         # import pdb; pdb.set_trace()
         novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
         novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
+
         policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
 
         self.rand_algo.start_worker() # TODO: Call this in constructor instead ?
@@ -68,14 +74,8 @@ class Trainer(object):
         print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
 
         # if we're using a cost trainer train it?
-        if self.cost_trainer:
-            # Novice rollouts gets all the rewards, etc. used for policy optimization, for the cost function we just want to use the observations.
-            # use "observations for the observations/states provided by the env, use "im_observations" to use the pixels (if available)
-            # import pdb; pdb.set_trace()
-            # novice_rollouts_tensor = tensor_utils.concat_tensor_list([path["observations"] for path in novice_rollouts])
-            # expert_rollouts_tensor = tensor_utils.concat_tensor_list([path["observations"] for path in expert_rollouts])
-            # novice_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in novice_rollouts])
-            # expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
+        if self.cost_trainer and self.iteration % self.train_cost_per_iters == 0:
+
             novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
             novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
             random_rollouts_tensor = [path["observations"] for path in random_rollouts]
@@ -85,7 +85,19 @@ class Trainer(object):
             # Replace first 5 novice rollouts by random policy trajectory
             train_novice_data[:5] = random_rollouts_tensor[:5]
 
-            self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
+            # novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
+            novice_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='last') for a in novice_rollouts_tensor])
+
+            # if self.iteration % self.replay_times == 0:
+            #     print("Appending replay buffer")
+            #     # import pdb; pdb.set_trace()
+            #     novice_rollouts_tensor = np.concatenate([novice_rollouts_tensor] + list(self.replay_buffer.values()), axis=0)
+            #     # import pdb; pdb.set_trace()
+            #     self.replay_buffer[self.replay_index] = novice_rollouts_tensor
+            #     self.replay_index += 1
+            #     self.replay_index %= self.max_replays
+
+            self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=6, num_frames=self.num_frames)
 
         # optimize the novice policy by one step
         # TODO: put this in a config provider or something?

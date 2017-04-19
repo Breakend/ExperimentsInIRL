@@ -40,7 +40,7 @@ class Discriminator(object):
 
     def train(self, data_batch, targets_batch):
         cost = self.sess.run([self.optimizer, self.loss], feed_dict={
-                                                                     self.pos_weighting: self.compute_pos_weight(targets_batch),
+                                                                    #  self.pos_weighting: self.compute_pos_weight(targets_batch),
                                                                      self.nn_input: data_batch,
                                                                      self.class_target: targets_batch})[1]
         return cost
@@ -106,14 +106,15 @@ class Discriminator(object):
 
     def get_loss_layer(self, pred, target_output):
         # http://stackoverflow.com/questions/40698709/tensorflow-interpretation-of-weight-in-weighted-cross-entropy
-        self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
+        # self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
         # import pdb; pdb.set_trace()
 
-        class_weight = [[self.pos_weighting, 1.0 - self.pos_weighting]]
-        weight_per_label = tf.transpose(tf.matmul(target_output,tf.transpose(class_weight) ))
+        # class_weight = [[self.pos_weighting, 1.0 - self.pos_weighting]]
+        # weight_per_label = tf.transpose(tf.matmul(target_output,tf.transpose(class_weight) ))
 
         # cross_entropy = tf.nn.weighted_cross_entropy_with_logits(logits=pred, targets=target_output, pos_weight=self.pos_weighting)
-        xent = tf.multiply(weight_per_label, tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=target_output, name="xent_raw")) #shape [1, batch_size]
+        # xent = tf.multiply(weight_per_label, tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=target_output, name="xent_raw")) #shape [1, batch_size]
+        xent = tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=target_output, name="xent_raw")
         cost = tf.reduce_mean(xent)
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
         return cost, optimizer
