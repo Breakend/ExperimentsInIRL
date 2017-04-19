@@ -9,6 +9,8 @@ from rllab.envs.gym_env import GymEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
 from sampling_utils import load_expert_rollouts
 import numpy as np
+from rllab.misc import tensor_utils
+
 
 from train import Trainer
 from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
@@ -73,6 +75,16 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     true_rewards = []
     actual_rewards = []
 
+    oversample = True
+    expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
+    expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
+
+    if oversample:
+        oversample_rate = int(number_of_sample_trajectories / len(expert_rollouts_tensor))
+        print("oversampling %d times" % oversample_rate)
+        expert_rollouts_tensor = expert_rollouts_tensor.repeat(oversample_rate, axis=0)
+
+
     with tf.Session() as sess:
         algo.start_worker()
 
@@ -84,7 +96,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
         for iter_step in range(0, iterations):
             dump_data = (iter_step == (iterations-1)) # is last iteration
-            true_reward, actual_reward = trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=dump_data, config=config, expert_horizon=traj_len, number_of_sample_trajectories=number_of_sample_trajectories)
+            true_reward, actual_reward = trainer.step(expert_rollouts_tensor=expert_rollouts_tensor, dump_datapoints=dump_data, config=config, expert_horizon=traj_len, number_of_sample_trajectories=number_of_sample_trajectories)
             true_rewards.append(true_reward)
             actual_rewards.append(actual_reward)
 

@@ -42,10 +42,10 @@ class Trainer(object):
             step_size=0.01,
         )
 
-    def step(self, expert_rollouts, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
+    def step(self, expert_rollouts_tensor, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
 
         if number_of_sample_trajectories is None:
-            number_of_sample_trajectories = len(expert_rollouts)
+            number_of_sample_trajectories = len(expert_rollouts_tensor)
 
 
         # This does things like calculate advantages and entropy, etc.
@@ -62,12 +62,13 @@ class Trainer(object):
         # random_rollouts = self.rand_algo.sampler.process_samples(itr=self.iteration, paths = random_rollouts)
         # novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
 
+        oversample = True
+
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
         print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
 
         # if we're using a cost trainer train it?
         if self.cost_trainer:
-
             # Novice rollouts gets all the rewards, etc. used for policy optimization, for the cost function we just want to use the observations.
             # use "observations for the observations/states provided by the env, use "im_observations" to use the pixels (if available)
             # import pdb; pdb.set_trace()
@@ -77,8 +78,6 @@ class Trainer(object):
             # expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
             novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
             novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
-            expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
-            expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, expert_horizon)
             random_rollouts_tensor = [path["observations"] for path in random_rollouts]
             random_rollouts_tensor = tensor_utils.pad_tensor_n(random_rollouts_tensor, expert_horizon)
 
@@ -87,8 +86,6 @@ class Trainer(object):
             train_novice_data[:5] = random_rollouts_tensor[:5]
 
             self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
-
-
 
         # optimize the novice policy by one step
         # TODO: put this in a config provider or something?
