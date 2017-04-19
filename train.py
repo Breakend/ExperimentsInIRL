@@ -2,6 +2,8 @@ from sampling_utils import *
 from rllab.sampler.base import BaseSampler
 from rllab.misc import tensor_utils
 from rllab.policies.uniform_control_policy import UniformControlPolicy
+from rllab.algos.nop import NOP
+from rllab.baselines.zero_baseline import ZeroBaseline
 import numpy as np
 
 class Trainer(object):
@@ -27,8 +29,18 @@ class Trainer(object):
         self.num_frames = num_frames
 
         # as in traditional GANs, we add failure noise
-        # TODO: what's the most correct way to use this?
         self.noise_fail_policy = UniformControlPolicy(env.spec)
+        self.zero_baseline = ZeroBaseline(env_spec=env.spec)
+        self.rand_algo = NOP(
+            env=env,
+            policy=self.noise_fail_policy,
+            baseline=self.zero_baseline,
+            batch_size=4000,
+            max_path_length=500,
+            n_itr=5,
+            discount=0.995,
+            step_size=0.01,
+        )
 
     def step(self, expert_rollouts, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
 
@@ -44,8 +56,11 @@ class Trainer(object):
         novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
         policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
 
+        self.rand_algo.start_worker() # TODO: Call this in constructor instead ?
+        self.rand_algo.init_opt()
+        random_rollouts = self.rand_algo.sampler.obtain_samples(itr = self.iteration)
+        # random_rollouts = self.rand_algo.sampler.process_samples(itr=self.iteration, paths = random_rollouts)
         # novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
-
 
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
         print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
@@ -64,8 +79,14 @@ class Trainer(object):
             novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
             expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
             expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, expert_horizon)
+            random_rollouts_tensor = [path["observations"] for path in random_rollouts]
+            random_rollouts_tensor = tensor_utils.pad_tensor_n(random_rollouts_tensor, expert_horizon)
 
-            self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
+            train_novice_data = novice_rollouts_tensor
+            # Replace first 5 novice rollouts by random policy trajectory
+            train_novice_data[:5] = random_rollouts_tensor[:5]
+
+            self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
 
 
 
@@ -76,7 +97,7 @@ class Trainer(object):
             learning_schedule = False
         else:
             learning_schedule = False
-            policy_opt_epochs = 1
+            policy_opt_epochs = 5
 
         if "policy_opt_learning_schedule" in config:
             learning_schedule = config["policy_opt_learning_schedule"]
