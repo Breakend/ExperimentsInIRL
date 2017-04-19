@@ -32,7 +32,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         number_of_sample_trajectories = config["num_novice_rollouts"]
     else:
         number_of_sample_trajectories = len(expert_rollouts)
-
+    print(number_of_sample_trajectories)
     policy = CategoricalMLPPolicy(
     name="policy",
     env_spec=env.spec,
