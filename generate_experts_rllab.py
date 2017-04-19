@@ -11,6 +11,10 @@ from sampling_utils import sample_policy_trajectories
 import pickle
 import tensorflow as tf
 import argparse
+
+from rllab.misc import ext
+# ext.set_seed(124)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("env")
 parser.add_argument("expert_rollout_pickle_path")
@@ -25,7 +29,9 @@ if args.env not in supported_envs:
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
-env = TfEnv(normalize(GymEnv(args.env, force_reset=True)))
+gymenv = GymEnv(args.env, force_reset=True)
+# gymenv.env.seed(124)
+env = TfEnv(normalize(gymenv))
 
 policy = CategoricalMLPPolicy(
 name="policy",
@@ -36,13 +42,15 @@ hidden_sizes=(32, 32)
 
 baseline = LinearFeatureBaseline(env_spec=env.spec)
 
+iters = 180
+
 algo = TRPO(
     env=env,
     policy=policy,
     baseline=baseline,
-    batch_size=4000,
+    batch_size=5000,
     max_path_length=200,
-    n_itr=180,
+    n_itr=iters,
     discount=0.99,
     step_size=0.01,
     # optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
@@ -58,10 +66,7 @@ with tf.Session() as sess:
 
     algo.train(sess=sess)
 
-    num_sample_trajectories = 100
-
-    # import pdb; pdb.set_trace()
-    rollouts = sample_policy_trajectories(policy, num_sample_trajectories, env)
+    rollouts = algo.obtain_samples(iters+1)
 
 # import pdb; pdb.set_trace()
 

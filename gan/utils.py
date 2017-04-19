@@ -16,10 +16,8 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4):
 
 
     data = np.vstack([expert_data, on_policy_data])
-    e_10 = np.zeros((2,))
-    e_10[0] = 1
-    e_01 = np.zeros((2,))
-    e_01[1] = 1
+    e_10 = np.ones((1,))
+    e_01 = np.zeros((1,))
     expert_classes = np.tile(e_10, (n_trajs_exp, horizon, 1))
     novice_classes = np.tile(e_01, (n_trajs_nov, horizon, 1))
     # import pdb; pdb.set_trace()
@@ -34,7 +32,7 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4):
 
     data_matrix = np.zeros(shape=(sample_range, num_frames, feature_space))
     # data_matrix_two = np.zeros(shape=(sample_range, num_frames, feature_space))
-    class_matrix = np.zeros(shape=(sample_range, 2))
+    class_matrix = np.zeros(shape=(sample_range, 1))
     # dom_matrix = np.zeros(shape=(sample_range, 2))
     # generate random samples of size num_frames
     for one_idx, iter_step in zip(all_idxs, range(0, sample_range)):
@@ -63,14 +61,14 @@ def shuffle_to_training_data_single(data, novice=True, num_frames=4):
 
 
     # data = np.vstack([expert_data, on_policy_data])
-    e_10 = np.zeros((2,))
-    e_10[0] = 1
-    e_01 = np.zeros((2,))
-    e_01[1] = 1
+    onee = np.ones((1,))
+    # e_10[0] = 1
+    zeroo = np.zeros((1,))
+    # e_01[1] = 1
     if novice:
-        classes = np.tile(e_01, (n_trajs, horizon, 1))
+        classes = np.tile(zeroo, (n_trajs, horizon, 1))
     else:
-        classes = np.tile(e_10, (n_trajs, horizon, 1))
+        classes = np.tile(onee, (n_trajs, horizon, 1))
     # import pdb; pdb.set_trace()
     # classes = np.vstack([expert_classes, novice_classes])
     # domains = np.vstack([expert_data['domains'], on_policy_data['domains'], expert_fail_data['domains']])
@@ -83,7 +81,7 @@ def shuffle_to_training_data_single(data, novice=True, num_frames=4):
 
     data_matrix = np.zeros(shape=(sample_range, num_frames, feature_space))
     # data_matrix_two = np.zeros(shape=(sample_range, num_frames, feature_space))
-    class_matrix = np.zeros(shape=(sample_range, 2))
+    class_matrix = np.zeros(shape=(sample_range, 1))
     # dom_matrix = np.zeros(shape=(sample_range, 2))
     # generate random samples of size num_frames
     for one_idx, iter_step in zip(all_idxs, range(0, sample_range)):

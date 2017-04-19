@@ -22,7 +22,7 @@ class Trainer(object):
         self.iteration = 0
         self.novice_policy = novice_policy
         self.novice_policy_optimizer = novice_policy_optimizer
-        self.sampler = BaseSampler(self.novice_policy_optimizer)
+        # self.sampler = BaseSampler(self.novice_policy_optimizer)
         self.concat_timesteps = concat_timesteps
         self.num_frames = num_frames
 
@@ -35,24 +35,18 @@ class Trainer(object):
         if number_of_sample_trajectories is None:
             number_of_sample_trajectories = len(expert_rollouts)
 
-        # collect samples for novice policy
-        # TODO: use cost to get rewards based on current cost, that is the rewards returned as part of the Rollouts
-        #       will be from the cost function
-        # TODO: number of novice trajectories set according to running IRL algorithm
-        #       1 for apprenticeship learning (single trajectory)
-        novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
-        # Add some noise to add stability?
-        # TODO: this doesn't work
-        # random_rollouts = sample_policy_trajectories(policy=self.noise_fail_policy, number_of_trajectories=int(number_of_sample_trajectories/2), env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
-        # # import pdb; pdb.set_trace()
-        #
-        # # TODO: make this cleaner, right now is a hack to be able to merge
-        # for rollout in random_rollouts:
-        #     rollout["agent_infos"]["prob"]  =  [[1.0/self.env.spec.action_space.flat_dim]*self.env.spec.action_space.flat_dim]*len(rollout["observations"])
 
-        # novice_rollouts = np.concatenate([novice_rollouts, random_rollouts], axis=0)
-
+        # This does things like calculate advantages and entropy, etc.
+        # if we use the cost function when acquiring the novice rollouts, this will use our cost function
+        # for optimizing the trajectories
         # import pdb; pdb.set_trace()
+        novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
+        novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
+        policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
+
+        # novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
+
+
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
         print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
 
@@ -61,15 +55,19 @@ class Trainer(object):
 
             # Novice rollouts gets all the rewards, etc. used for policy optimization, for the cost function we just want to use the observations.
             # use "observations for the observations/states provided by the env, use "im_observations" to use the pixels (if available)
-            novice_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in novice_rollouts])
-            expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
+            # import pdb; pdb.set_trace()
+            # novice_rollouts_tensor = tensor_utils.concat_tensor_list([path["observations"] for path in novice_rollouts])
+            # expert_rollouts_tensor = tensor_utils.concat_tensor_list([path["observations"] for path in expert_rollouts])
+            # novice_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in novice_rollouts])
+            # expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
+            novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
+            novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
+            expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
+            expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, expert_horizon)
 
             self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
 
-        # This does things like calculate advantages and entropy, etc.
-        # if we use the cost function when acquiring the novice rollouts, this will use our cost function
-        # for optimizing the trajectories
-        policy_training_samples = self.sampler.process_samples(itr=self.iteration, paths=novice_rollouts)
+
 
         # optimize the novice policy by one step
         # TODO: put this in a config provider or something?
@@ -94,8 +92,10 @@ class Trainer(object):
         for i in range(policy_opt_epochs):
             # import pdb; pdb.set_trace()
             if i >= 1:
-                novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
-                policy_training_samples = self.sampler.process_samples(itr=self.iteration, paths=novice_rollouts)
+                # Resample so TRPO doesn't just reject all the steps
+                novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
+                novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
+                policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
 
             self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
             self.iteration += 1

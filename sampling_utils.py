@@ -40,6 +40,24 @@ def load_expert_rollouts(filepath):
     # why encoding? http://stackoverflow.com/questions/11305790/pickle-incompatability-of-numpy-arrays-between-python-2-and-3
     return pickle.load(open(filepath, "rb"), encoding='latin1')
 
+def process_samples_with_reward_extractor(samples, reward_extractor, concat_timesteps, num_frames):
+    for sample in samples:
+        if concat_timesteps:
+            true_rewards = sample['rewards']
+            observations = sample['observations']
+            obs_pls_three = np.zeros((observations.shape[0], num_frames, observations.shape[1]))
+            # import pdb; pdb.set_trace()
+            for iter_step in range(0, obs_pls_three.shape[0]):
+                for i in range(num_frames):
+                    idx_plus_three = min(iter_step+num_frames, obs_pls_three.shape[0]-1)
+                    obs_pls_three[iter_step, i, :] = observations[idx_plus_three, :]
+            rewards = reward_extractor.get_reward(obs_pls_three)
+            sample['rewards'] = rewards
+            sample['true_rewards'] = true_rewards
+        else:
+            sample['true_rewards'] = sample['rewards']
+    return samples
+
 def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False, num_frames=4, concat_timesteps=True):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164

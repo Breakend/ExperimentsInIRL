@@ -41,6 +41,7 @@ parser.add_argument("--num_expert_rollouts", default=20, type=int)
 parser.add_argument("--num_novice_rollouts", default=None, type=int, help="Default none means that it\'ll match the number of expert rollouts.")
 parser.add_argument("--policy_opt_steps_per_global_step", default=1, type=int)
 parser.add_argument("--policy_opt_learning_schedule", action="store_true")
+parser.add_argument("--max_path_length", default=200, type=int)
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -65,6 +66,7 @@ config["num_expert_rollouts"] = args.num_expert_rollouts
 config["num_novice_rollouts"] = args.num_novice_rollouts
 config["policy_opt_steps_per_global_step"] = args.policy_opt_steps_per_global_step
 config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
+# config["replay_old_samples"] = args.replay_old_samples
 
 # average results over 10 experiments
 true_rewards = []
@@ -77,7 +79,8 @@ for i in range(args.num_experiments):
                                                               arg_to_cost_trainer_map[args.algorithm],
                                                               iterations=args.iterations,
                                                               num_frames=args.num_frames,
-                                                              config=config)
+                                                              config=config,
+                                                              traj_len=args.max_path_length)
         true_rewards.append(true_rewards_exp)
 
     avg_true_rewards = np.mean(true_rewards, axis=0)

@@ -12,7 +12,7 @@ class GANCostTrainerWithRewardOptions(object):
         self.disc = ConvStateBasedDiscriminatorWithOptions(input_dims, mixtures=mixtures, config=config)
 
     def get_reward(self, samples):
-        return self.disc.eval(samples)[:, 0]
+        return self.disc.eval(samples)[0].T[0]
 
     def dump_datapoints(self, num_frames=4):
         if num_frames != 1:

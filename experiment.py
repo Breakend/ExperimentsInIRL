@@ -19,7 +19,19 @@ import tensorflow as tf
 import pickle
 import argparse
 
-def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1, config={}):
+def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1, traj_len=200, config={}):
+
+    expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
+
+    # TODO: hack to generically load dimensions of structuresx
+    # import pdb; pdb.set_trace()
+    obs_dims = len(expert_rollouts[0]['observations'][0])
+    # traj_len = len(expert_rollouts[0]['observations'])
+
+    if "num_novice_rollouts" in config:
+        number_of_sample_trajectories = config["num_novice_rollouts"]
+    else:
+        number_of_sample_trajectories = len(expert_rollouts)
 
     policy = CategoricalMLPPolicy(
     name="policy",
@@ -34,34 +46,27 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=4000,
-        max_path_length=500,
+        batch_size=number_of_sample_trajectories*traj_len, # This is actually used internally by the sampler. We make use of this sampler to generate our samples, hence we pass it here
+        max_path_length=traj_len, # same with this value. A cleaner way may be to create our own sampler, but for now doing it this way..
         n_itr=40,
         discount=0.99,
         step_size=0.01,
         optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
     )
 
-    expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
 
     if "num_expert_rollouts" in config:
         rollouts_to_use = min(config["num_expert_rollouts"], len(expert_rollouts))
         expert_rollouts = expert_rollouts[:rollouts_to_use]
         print("Only using %d expert rollouts" % rollouts_to_use)
 
-    if "num_novice_rollouts" in config:
-        number_of_sample_trajectories = config["num_novice_rollouts"]
-    else:
-        number_of_sample_trajectories = None
+
 
     # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
-    print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['true_rewards']) for p in expert_rollouts]))
+    print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['rewards']) for p in expert_rollouts]))
     # import pdb; pdb.set_trace()
 
-    # TODO: hack to generically load dimensions of structuresx
-    # import pdb; pdb.set_trace()
-    obs_dims = len(expert_rollouts[0]['observations'][0])
-    traj_len = len(expert_rollouts[0]['observations'])
+
 
 
     # import pdb; pdb.set_trace()
@@ -69,6 +74,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     actual_rewards = []
 
     with tf.Session() as sess:
+        algo.start_worker()
 
         cost_trainer = cost_trainer_type([num_frames, obs_dims], config=config)
 
@@ -78,10 +84,11 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
         for iter_step in range(0, iterations):
             dump_data = (iter_step == (iterations-1)) # is last iteration
-            true_reward, actual_reward = trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=dump_data, config=config, number_of_sample_trajectories=number_of_sample_trajectories)
+            true_reward, actual_reward = trainer.step(expert_rollouts=expert_rollouts, dump_datapoints=dump_data, config=config, expert_horizon=traj_len, number_of_sample_trajectories=number_of_sample_trajectories)
             true_rewards.append(true_reward)
             actual_rewards.append(actual_reward)
 
+        algo.shutdown_worker()
         # TODO: should we overwrite the policy
         with open(trained_policy_pickle_path, "wb") as output_file:
             pickle.dump(policy, output_file)
