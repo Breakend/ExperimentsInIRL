@@ -30,10 +30,10 @@ class Trainer(object):
         # TODO: what's the most correct way to use this?
         self.noise_fail_policy = UniformControlPolicy(env.spec)
 
-    def step(self, expert_rollouts, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
+    def step(self, expert_rollouts_tensor, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
 
         if number_of_sample_trajectories is None:
-            number_of_sample_trajectories = len(expert_rollouts)
+            number_of_sample_trajectories = len(expert_rollouts_tensor)
 
 
         # This does things like calculate advantages and entropy, etc.
@@ -45,7 +45,7 @@ class Trainer(object):
         policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
 
         # novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
-
+        oversample = True
 
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
         print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
@@ -62,8 +62,6 @@ class Trainer(object):
             # expert_rollouts_tensor = tensor_utils.stack_tensor_list([p['observations'] for p in expert_rollouts])
             novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
             novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
-            expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
-            expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, expert_horizon)
 
             self.cost_trainer.train_cost(novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
 
