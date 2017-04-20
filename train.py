@@ -31,7 +31,7 @@ class Trainer(object):
         self.max_replays = 3
         self.replay_index = 0
         self.replay_times = 40
-        self.train_cost_per_iters = 10
+        self.train_cost_per_iters = 6
 
         # as in traditional GANs, we add failure noise
         self.noise_fail_policy = UniformControlPolicy(env.spec)
@@ -46,6 +46,8 @@ class Trainer(object):
             discount=0.995,
             step_size=0.01,
         )
+        self.rand_algo.start_worker() # TODO: Call this in constructor instead ?
+        self.rand_algo.init_opt()
 
     def step(self, expert_rollouts_tensor, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
 
@@ -62,31 +64,24 @@ class Trainer(object):
 
         policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
 
-        self.rand_algo.start_worker() # TODO: Call this in constructor instead ?
-        self.rand_algo.init_opt()
-        random_rollouts = self.rand_algo.sampler.obtain_samples(itr = self.iteration)
-        # random_rollouts = self.rand_algo.sampler.process_samples(itr=self.iteration, paths = random_rollouts)
-        # novice_rollouts = sample_policy_trajectories(policy=self.novice_policy, number_of_trajectories=number_of_sample_trajectories, env=self.env, horizon=expert_horizon, reward_extractor=self.cost_approximator, num_frames=self.num_frames, concat_timesteps=self.concat_timesteps)
-
-        oversample = True
-
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
         print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
 
         # if we're using a cost trainer train it?
         if self.cost_trainer and self.iteration % self.train_cost_per_iters == 0:
+            random_rollouts = self.rand_algo.sampler.obtain_samples(itr = self.iteration)
 
             novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
-            novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
+            novice_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='last') for a in novice_rollouts_tensor])
             random_rollouts_tensor = [path["observations"] for path in random_rollouts]
-            random_rollouts_tensor = tensor_utils.pad_tensor_n(random_rollouts_tensor, expert_horizon)
+            random_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='last') for a in random_rollouts_tensor])
 
             train_novice_data = novice_rollouts_tensor
             # Replace first 5 novice rollouts by random policy trajectory
             train_novice_data[:5] = random_rollouts_tensor[:5]
 
             # novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
-            novice_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='last') for a in novice_rollouts_tensor])
+            # novice_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='last') for a in novice_rollouts_tensor])
 
             # if self.iteration % self.replay_times == 0:
             #     print("Appending replay buffer")
@@ -97,7 +92,7 @@ class Trainer(object):
             #     self.replay_index += 1
             #     self.replay_index %= self.max_replays
 
-            self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=6, num_frames=self.num_frames)
+            self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=8, num_frames=self.num_frames)
 
         # optimize the novice policy by one step
         # TODO: put this in a config provider or something?
@@ -106,7 +101,7 @@ class Trainer(object):
             learning_schedule = False
         else:
             learning_schedule = False
-            policy_opt_epochs = 5
+            policy_opt_epochs = 1
 
         if "policy_opt_learning_schedule" in config:
             learning_schedule = config["policy_opt_learning_schedule"]

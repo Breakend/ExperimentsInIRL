@@ -24,6 +24,7 @@ import argparse
 def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1, traj_len=200, config={}):
 
     expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
+    # import pdb; pdb.set_trace()
 
     # TODO: hack to generically load dimensions of structuresx
     # import pdb; pdb.set_trace()
@@ -75,7 +76,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     true_rewards = []
     actual_rewards = []
 
-    oversample = True
+    oversample = False
     expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
     expert_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, traj_len, mode='last') for a in expert_rollouts_tensor])
     # expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
@@ -101,9 +102,18 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             true_rewards.append(true_reward)
             actual_rewards.append(actual_reward)
 
+        novice_rollouts = algo.obtain_samples(iter_step)
+
+        rollout_rewards = [np.sum(x['rewards']) for x in novice_rollouts]
+
+
+        print("Reward stats for final policy: %f +/- %f " % (np.mean(rollout_rewards), np.std(rollout_rewards)))
+
+
         algo.shutdown_worker()
         # TODO: should we overwrite the policy
         with open(trained_policy_pickle_path, "wb") as output_file:
             pickle.dump(policy, output_file)
+
 
     return true_rewards, actual_rewards
