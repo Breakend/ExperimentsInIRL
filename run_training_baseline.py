@@ -10,7 +10,6 @@ from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolic
 from sampling_utils import load_expert_rollouts
 
 from train import Trainer
-from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
 from gan.gan_trainer import GANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
 from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrainer

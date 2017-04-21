@@ -13,7 +13,6 @@ from rllab.misc import tensor_utils
 
 
 from train import Trainer
-# from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
 # from gan.gan_trainer import GANCostTrainer
 # from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
 

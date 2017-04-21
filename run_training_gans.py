@@ -19,7 +19,6 @@ ext.set_seed(1)
 
 
 from train import Trainer
-from guided_cost_search.cost_ioc_tf import GuidedCostLearningTrainer
 from gan.gan_trainer import GANCostTrainer
 from gan.wgan_trainer import WGANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions, GANCostTrainerWithRewardMixtures
