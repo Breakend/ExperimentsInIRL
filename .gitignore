@@ -91,3 +91,4 @@ ENV/
 experts/modular_rl
 novices/*
 *.png
+*rewards_data.pickle
