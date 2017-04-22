@@ -22,6 +22,7 @@ from train import Trainer
 from gan.gan_trainer import GANCostTrainer
 from gan.wgan_trainer import WGANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions, GANCostTrainerWithRewardMixtures
+from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrainer
 
 from experiment import *
 import tensorflow as tf
@@ -47,7 +48,8 @@ args = parser.parse_args()
 arg_to_cost_trainer_map = {"rlgan" : GANCostTrainer,
                            "optiongan" : GANCostTrainerWithRewardOptions,
                            "mixgan" : GANCostTrainerWithRewardMixtures,
-                           "wgan": WGANCostTrainer}
+                           "wgan": WGANCostTrainer,
+                           "apprenticeship": ApprenticeshipCostLearningTrainer}
 
 if args.algorithm not in arg_to_cost_trainer_map.keys():
     raise Exception("Algorithm not supported must be one of " + arg_to_cost_trainer_map.keys())
@@ -60,6 +62,7 @@ env = TfEnv(normalize(gymenv))
 
 #TODO: don't do this, should just eat args into config
 config = {}
+config["algorithm"] = args.algorithm
 config["importance_weights"] = args.importance_weights
 config["num_expert_rollouts"] = args.num_expert_rollouts
 config["num_novice_rollouts"] = args.num_novice_rollouts

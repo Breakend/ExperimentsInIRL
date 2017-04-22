@@ -50,7 +50,6 @@ class Trainer(object):
         self.rand_algo.init_opt()
 
     def step(self, expert_rollouts_tensor, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
-
         if number_of_sample_trajectories is None:
             number_of_sample_trajectories = len(expert_rollouts_tensor)
 
@@ -78,7 +77,8 @@ class Trainer(object):
 
             train_novice_data = novice_rollouts_tensor
             # Replace first 5 novice rollouts by random policy trajectory
-            train_novice_data[:5] = random_rollouts_tensor[:5]
+            if config["algorithm"] != "apprenticeship":# ew hack
+                train_novice_data[:5] = random_rollouts_tensor[:5]
 
             # novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
             # novice_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='last') for a in novice_rollouts_tensor])
@@ -91,8 +91,7 @@ class Trainer(object):
             #     self.replay_buffer[self.replay_index] = novice_rollouts_tensor
             #     self.replay_index += 1
             #     self.replay_index %= self.max_replays
-
-            self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=8, num_frames=self.num_frames)
+            self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
 
         # optimize the novice policy by one step
         # TODO: put this in a config provider or something?

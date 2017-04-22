@@ -16,14 +16,14 @@ def make_rand_vector(dims):
 
 class ApprenticeshipCostLearningTrainer(object):
 
-    def __init__(self, expert_paths, input_dims, gamma):
-        self.dim = input_dims
+    def __init__(self, input_dims, config={}, gamma=.99):
+        self.dim = input_dims[1]
         # self.weights = np.random.uniform(low=-1.0, high=1.0, size = input_dims)
         # self.weights = make_rand_vector(input_dims)
         # self.weights = [-0.63649622, -0.17047543,  0.17078687, -0.7325589 ]
         # normalize
         self.poly_augmenter = PolynomialFeatures(degree=2, include_bias=False, interaction_only=True)
-        temp = self.poly_augmenter.fit_transform([0] * input_dims)[0]
+        temp = self.poly_augmenter.fit_transform([0] * input_dims[1])[0]
         self.n_features = len(temp)
         self.weights = np.random.dirichlet(np.ones(self.n_features)*1, size=1)
         self.weights = self.weights[0]
@@ -46,6 +46,11 @@ class ApprenticeshipCostLearningTrainer(object):
     def pseudo_normalize(self, x):
         return (np.tanh(x)+1.0)/2.0
 
+    def dump_datapoints(self, num_frames=4):
+        if num_frames != 1:
+            print("only support graphing internal things with 1 frame concated for now")
+            return
+        return
 
     def get_reward(self, obs):
         r = []

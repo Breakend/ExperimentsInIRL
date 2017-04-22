@@ -2,7 +2,7 @@
 
 We have several different IRL methods here:
 
-apprenticeship learning via reinforcement learning (run_training_baseline.py) (not very stable, but should reach an optimal policy after about 3000 iterations, but can diverge quickly)
+apprenticeship learning via reinforcement learning (not very stable, but should reach an optimal policy after about 3000 iterations, but can diverge quickly, run_training_gans.py with the correct parameter)
 
 behavioural cloning (run_bahavioural_cloning.py)
 

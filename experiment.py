@@ -81,7 +81,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     # expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
 
     if oversample:
-        oversample_rate = int(number_of_sample_trajectories / len(expert_rollouts_tensor))
+        oversample_rate = max(int(number_of_sample_trajectories / len(expert_rollouts_tensor)), 1.)
         expert_rollouts_tensor = expert_rollouts_tensor.repeat(oversample_rate, axis=0)
         print("oversampling %d times to %d" % (oversample_rate, len(expert_rollouts_tensor)))
 
