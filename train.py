@@ -31,7 +31,7 @@ class Trainer(object):
         self.max_replays = 3
         self.replay_index = 0
         self.replay_times = 40
-        self.train_cost_per_iters = 6
+        self.train_cost_per_iters = 3
 
         # as in traditional GANs, we add failure noise
         self.noise_fail_policy = UniformControlPolicy(env.spec)

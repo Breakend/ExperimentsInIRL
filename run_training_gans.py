@@ -58,7 +58,7 @@ if args.algorithm not in arg_to_cost_trainer_map.keys():
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
 gymenv = GymEnv(args.env, force_reset=True)
 gymenv.env.seed(1)
-env = TfEnv(normalize(gymenv))
+env = TfEnv(normalize(gymenv, normalize_obs=True))
 
 #TODO: don't do this, should just eat args into config
 config = {}

@@ -6,10 +6,13 @@ from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
+from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
+from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import FiniteDifferenceHvp
 
 from sampling_utils import sample_policy_trajectories
 import pickle
 import tensorflow as tf
+import numpy as np
 import argparse
 
 from rllab.misc import ext
@@ -32,7 +35,7 @@ args = parser.parse_args()
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
 gymenv = GymEnv(args.env, force_reset=True)
 # gymenv.env.seed(124)
-env = TfEnv(normalize(gymenv))
+env = TfEnv(normalize(gymenv, normalize_obs=True))
 
 policy = CategoricalMLPPolicy(
 name="policy",
@@ -54,7 +57,7 @@ algo = TRPO(
     n_itr=iters,
     discount=0.99,
     step_size=0.01,
-    # optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+    optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
 )
 
 # run_experiment_lite(
@@ -68,6 +71,7 @@ with tf.Session() as sess:
     algo.train(sess=sess)
 
     rollouts = algo.obtain_samples(iters+1)
+    print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['rewards']) for p in rollouts]))
 
 # import pdb; pdb.set_trace()
 
