@@ -7,10 +7,10 @@ from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.gym_env import GymEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
-from sampling_utils import load_expert_rollouts
+from sampling_utils import load_expert_rollouts, rollout_policy
 import numpy as np
 from rllab.misc import tensor_utils
-
+import gym.wrappers
 
 from train import Trainer
 # from gan.gan_trainer import GANCostTrainer
@@ -100,6 +100,12 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             true_reward, actual_reward = trainer.step(expert_rollouts_tensor=expert_rollouts_tensor, dump_datapoints=dump_data, config=config, expert_horizon=traj_len, number_of_sample_trajectories=number_of_sample_trajectories)
             true_rewards.append(true_reward)
             actual_rewards.append(actual_reward)
+
+            # run a rollout for the video
+            if "recording_env" in config:
+                novice_rollouts = rollout_policy(policy, config["recording_env"], get_image_observations=False, max_path_length=200)
+
+
 
         novice_rollouts = algo.obtain_samples(iter_step)
 

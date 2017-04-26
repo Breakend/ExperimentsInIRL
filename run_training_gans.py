@@ -42,6 +42,8 @@ parser.add_argument("--num_novice_rollouts", default=None, type=int, help="Defau
 parser.add_argument("--policy_opt_steps_per_global_step", default=1, type=int)
 parser.add_argument("--policy_opt_learning_schedule", action="store_true")
 parser.add_argument("--max_path_length", default=200, type=int)
+parser.add_argument("--record_video_sample_for_rollout", action="store_true")
+parser.add_argument("--regularize_observation_space", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -56,9 +58,12 @@ if args.algorithm not in arg_to_cost_trainer_map.keys():
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
+
 gymenv = GymEnv(args.env, force_reset=True)
+
 gymenv.env.seed(1)
-env = TfEnv(normalize(gymenv, normalize_obs=True))
+reg_obs = True if args.regularize_observation_space else False #is this necessary?
+env = TfEnv(normalize(gymenv, normalize_obs=reg_obs))
 
 #TODO: don't do this, should just eat args into config
 config = {}
@@ -68,6 +73,9 @@ config["num_expert_rollouts"] = args.num_expert_rollouts
 config["num_novice_rollouts"] = args.num_novice_rollouts
 config["policy_opt_steps_per_global_step"] = args.policy_opt_steps_per_global_step
 config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
+
+if args.record_video_sample_for_rollout:
+    config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")
 # config["replay_old_samples"] = args.replay_old_samples
 
 # average results over 10 experiments

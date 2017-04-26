@@ -78,6 +78,7 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
         observations.append(env.observation_space.flatten(o))
         if d:
             rewards.append(0.0)
+            break
         else:
             rewards.append(r)
         actions.append(env.action_space.flatten(a))
