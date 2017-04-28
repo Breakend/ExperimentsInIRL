@@ -44,6 +44,7 @@ parser.add_argument("--policy_opt_learning_schedule", action="store_true")
 parser.add_argument("--max_path_length", default=200, type=int)
 parser.add_argument("--record_video_sample_for_rollout", action="store_true")
 parser.add_argument("--regularize_observation_space", action="store_true")
+parser.add_argument("--oversample_expert", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -73,9 +74,20 @@ config["num_expert_rollouts"] = args.num_expert_rollouts
 config["num_novice_rollouts"] = args.num_novice_rollouts
 config["policy_opt_steps_per_global_step"] = args.policy_opt_steps_per_global_step
 config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
+config["oversample"] = args.oversample_expert
 
 if args.record_video_sample_for_rollout:
     config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")
+
+# We need to know if this env has bad short runs or not. i.e. mountain car ending early is good, but cartpole ending early is bad
+# We don't make this an arg so people don't accidentally forget.
+bad_short_runs_mapping = {"MountainCar-v0" : False, "CartPole-v0": True}
+
+if args.env not in bad_short_runs_mapping.keys():
+    raise Exception("Env %s not supported. Supported envs: %s" % (args.env, ", ".join(bad_short_runs_mapping.keys())))
+
+config['short_run_is_bad'] = bad_short_runs_mapping[args.env]
+
 # config["replay_old_samples"] = args.replay_old_samples
 
 # average results over 10 experiments

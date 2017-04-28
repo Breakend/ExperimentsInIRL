@@ -1,21 +1,23 @@
 import tensorflow as tf
 import numpy as np
+from .nn_utils import logit_bernoulli_entropy, logsigmoid
 import matplotlib.pyplot as plt
 
 # This is mostly taken and modified from: https://github.com/Breakend/third_person_im/blob/master/sandbox/bradly/third_person/discriminators/discriminator.py
 
 class Discriminator(object):
-    def __init__(self, input_dim, output_dim_class=2, output_dim_dom=None, tf_sess=None):
+    def __init__(self, input_dim, output_dim_class=2, output_dim_dom=None, tf_sess=None, config={}):
         self.input_dim = input_dim
         self.output_dim_class = output_dim_class
         self.output_dim_dom = output_dim_dom
-        self.learning_rate = 0.001
+        self.learning_rate = 0.01
         self.loss = None
         self.discrimination_logits = None
         self.optimizer = None
         self.nn_input = None
         self.class_target = None
         self.sess = tf_sess
+        self.config = config
 
     def init_tf(self):
         if self.sess is None:
@@ -47,7 +49,10 @@ class Discriminator(object):
 
     def eval(self, data, softmax=True):
         if softmax is True:
-            logits = tf.nn.sigmoid(self.discrimination_logits)
+            if "short_run_is_bad" in self.config and not self.config["short_run_is_bad"]:
+                logits = tf.nn.sigmoid(self.discrimination_logits) - 1.0
+            else:
+                logits = tf.nn.sigmoid(self.discrimination_logits)
         else:
             logits = self.discrimination_logits
         # import pdb; pdb.set_trace()
@@ -104,12 +109,15 @@ class Discriminator(object):
         return tf.Variable(tf.random_uniform(filter_shape, minval=low, maxval=high, dtype=tf.float32))
         #return tf.Variable(tf.random_normal(filter_shape, mean=0.01, stddev=0.001, dtype=tf.float32))
 
-    def get_loss_layer(self, pred, target_output):
+    def get_loss_layer(self, pred, target_output, use_entropy_penalty = True):
         # http://stackoverflow.com/questions/40698709/tensorflow-interpretation-of-weight-in-weighted-cross-entropy
         # self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
 
         cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=target_output)#, pos_weight=self.pos_weighting)
-        cost = tf.reduce_mean(cross_entropy)
+        if use_entropy_penalty:
+            cross_entropy -= .001*logit_bernoulli_entropy(pred)
+        cost = tf.reduce_sum(cross_entropy, axis=0)
+
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
         return cost, optimizer
 
@@ -117,8 +125,8 @@ class Discriminator(object):
 class ConvStateBasedDiscriminator(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, dim_output=1):
-        super(ConvStateBasedDiscriminator, self).__init__(input_dim)
+    def __init__(self, input_dim, dim_output=1, config={}):
+        super(ConvStateBasedDiscriminator, self).__init__(input_dim, config=config)
         self.make_network(dim_input=input_dim, dim_output=dim_output)
         self.init_tf()
 
@@ -207,9 +215,9 @@ class ConvStateBasedDiscriminator(Discriminator):
 class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, nn_input, target, dim_output=1, scope="external", tf_sess=None):
+    def __init__(self, input_dim, nn_input, target, dim_output=1, scope="external", tf_sess=None, config={}):
         with tf.variable_scope(scope):
-            super(ConvStateBasedDiscriminatorWithExternalIO, self).__init__(input_dim, tf_sess=tf_sess)
+            super(ConvStateBasedDiscriminatorWithExternalIO, self).__init__(input_dim, tf_sess=tf_sess, config=config)
             self.make_network(input_dim, dim_output, nn_input, target)
             self.init_tf()
 
@@ -297,7 +305,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
     def __init__(self, input_dim, num_options=4, mixtures=True, config={}):
-        super(ConvStateBasedDiscriminatorWithOptions, self).__init__(input_dim)
+        super(ConvStateBasedDiscriminatorWithOptions, self).__init__(input_dim, config=config)
         self.num_options = num_options
         # TODO: move the other args into the config
         self.config = config

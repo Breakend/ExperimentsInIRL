@@ -2,28 +2,6 @@ import pickle
 from rllab.misc import tensor_utils
 import numpy as np
 
-
-class GpsBatchSampler(object):
-    """ Samples data, from GPS code TODO """
-    def __init__(self, data, batch_dim=0):
-        self.data = data
-        self.batch_dim = batch_dim
-
-        # Check that all data has same size on batch_dim
-        self.num_data = data[0].shape[batch_dim]
-        for d in data:
-            assert d.shape[batch_dim] == self.num_data, "Bad shape on axis %d: %s, (expected %d)" % \
-                                                        (batch_dim, str(d.shape), self.num_data)
-
-    def with_replacement(self, batch_size=10):
-        while True:
-            batch_idx = np.random.randint(0, self.num_data, size=batch_size)
-            batch = [data[batch_idx] for data in self.data]
-            yield batch
-
-    def iterate(self, batch_size=10, epochs=float('inf'), shuffle=True):
-        raise NotImplementedError()
-
 def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200, reward_extractor=None, num_frames=4, concat_timesteps=True):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
@@ -42,16 +20,21 @@ def load_expert_rollouts(filepath):
 
 def process_samples_with_reward_extractor(samples, reward_extractor, concat_timesteps, num_frames):
     for sample in samples:
-        if concat_timesteps:
+        if reward_extractor:
             true_rewards = sample['rewards']
             observations = sample['observations']
-            obs_pls_three = np.zeros((observations.shape[0], num_frames, observations.shape[1]))
-            # import pdb; pdb.set_trace()
-            for iter_step in range(0, obs_pls_three.shape[0]):
-                for i in range(num_frames):
-                    idx_plus_three = min(iter_step+num_frames, obs_pls_three.shape[0]-1)
-                    obs_pls_three[iter_step, i, :] = observations[idx_plus_three, :]
-            rewards = reward_extractor.get_reward(obs_pls_three)
+            feature_space = len(observations[0])
+            all_datas = []
+            for time_key in range(len(observations)):
+                data_matrix = np.zeros(shape=(1, num_frames, feature_space))
+                # we want the first thing in the sequence to be repeated until we have enough to form a sequence
+                # TODO: replicate this in the extract rewards function
+                for t in range(0, num_frames):
+                    time_key_plus_one = max(time_key - t, 0)
+                    data_matrix[0, num_frames-t-1, :] = observations[time_key_plus_one, :]
+                all_datas.append(data_matrix)
+
+            rewards = reward_extractor.get_reward(np.vstack(all_datas))
             sample['rewards'] = rewards
             sample['true_rewards'] = true_rewards
         else:
@@ -78,7 +61,7 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
         observations.append(env.observation_space.flatten(o))
         if d:
             rewards.append(0.0)
-            break
+            # break
         else:
             rewards.append(r)
         actions.append(env.action_space.flatten(a))

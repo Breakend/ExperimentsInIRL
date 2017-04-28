@@ -53,7 +53,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         n_itr=40,
         discount=0.99,
         step_size=0.01,
-        optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+        optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5), max_backtracks=40)
     )
 
 
@@ -75,12 +75,12 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     true_rewards = []
     actual_rewards = []
 
-    oversample = True
-    expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
-    expert_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, traj_len, mode='last') for a in expert_rollouts_tensor])
+
+    expert_rollouts_tensor = tensor_utils.stack_tensor_list([path["observations"] for path in expert_rollouts])
+    # expert_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, traj_len, mode='zero') for a in expert_rollouts_tensor])
     # expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
 
-    if oversample:
+    if "oversample" in config and config["oversample"]:
         oversample_rate = max(int(number_of_sample_trajectories / len(expert_rollouts_tensor)), 1.)
         expert_rollouts_tensor = expert_rollouts_tensor.repeat(oversample_rate, axis=0)
         print("oversampling %d times to %d" % (oversample_rate, len(expert_rollouts_tensor)))

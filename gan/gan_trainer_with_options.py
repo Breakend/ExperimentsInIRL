@@ -23,7 +23,7 @@ class GANCostTrainerWithRewardOptions(object):
 
     def train_cost(self, novice_rollouts_tensor, expert_rollouts_tensor, number_epochs=2, num_frames=4):
         data_matrix, class_matrix = shuffle_to_training_data(expert_rollouts_tensor, novice_rollouts_tensor, num_frames=num_frames)
-        self._train_cost(data_matrix, number_epochs, class_matrix)
+        return self._train_cost(data_matrix, number_epochs, class_matrix)
 
     def _train_cost(self, data, epochs, classes, batch_size=20, horizon=200):
         for iter_step in range(0, epochs):
@@ -41,6 +41,7 @@ class GANCostTrainerWithRewardOptions(object):
                 lab_acc.append(self.disc.get_lab_accuracy(data_batch, classes_batch))
             print('loss is ' + str(np.mean(np.array(batch_losses))))
             print('acc is ' + str(np.mean(np.array(lab_acc))))
+        return np.mean(np.array(batch_losses)), np.mean(np.array(lab_acc))
 
 
 class GANCostTrainerWithRewardMixtures(GANCostTrainerWithRewardOptions):
