@@ -37,3 +37,5 @@ for obs in data["observations"]:
     upscaled = repeat_upsample(obs, 2, 2)
     viewer.imshow(upscaled)
     # time.sleep(0.1)
+
+viewer.close()

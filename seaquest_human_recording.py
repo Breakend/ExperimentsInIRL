@@ -62,7 +62,7 @@ def key_release(key, mod):
 
 observations = []
 rewards = []
-
+actions = []
 
 def repeat_upsample(rgb_array, k=1, l=1, err=[]):
     # repeat kinda crashes if k/l are zero
@@ -100,6 +100,7 @@ def rollout(env):
         obser, r, done, info = env.step(a)
         observations.append(obser)
         rewards.append(r)
+        actions.append(a)
         rgb = env.render('rgb_array')
         upscaled = repeat_upsample(rgb, 2, 2)
         viewer.imshow(upscaled)
@@ -120,5 +121,7 @@ rollout(env)
 timestr = time.strftime("%Y%m%d-%H%M%S")
 reward = np.sum(rewards)
 
+viewer.close()
+
 with open("%s-human-demo-reward-%s.pickle" % (timestr, reward), "wb") as output_file:
-    pickle.dump(dict(observations=observations), output_file)
+    pickle.dump(dict(observations=observations, actions=actions), output_file)
