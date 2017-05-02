@@ -39,12 +39,13 @@ parser.add_argument("--env", default="CartPole-v0")
 parser.add_argument("--iterations", default=30, type=int)
 parser.add_argument("--num_expert_rollouts", default=20, type=int)
 parser.add_argument("--num_novice_rollouts", default=None, type=int, help="Default none means that it\'ll match the number of expert rollouts.")
-parser.add_argument("--policy_opt_steps_per_global_step", default=1, type=int)
-parser.add_argument("--policy_opt_learning_schedule", action="store_true")
+# parser.add_argument("--policy_opt_steps_per_global_step", default=1, type=int)
+# parser.add_argument("--policy_opt_learning_schedule", action="store_true")
 parser.add_argument("--max_path_length", default=200, type=int)
 parser.add_argument("--record_video_sample_for_rollout", action="store_true")
 parser.add_argument("--regularize_observation_space", action="store_true")
 parser.add_argument("--oversample_expert", action="store_true")
+parser.add_argument("--entropy_penalty", default=.001, type=float)
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -72,9 +73,10 @@ config["algorithm"] = args.algorithm
 config["importance_weights"] = args.importance_weights
 config["num_expert_rollouts"] = args.num_expert_rollouts
 config["num_novice_rollouts"] = args.num_novice_rollouts
-config["policy_opt_steps_per_global_step"] = args.policy_opt_steps_per_global_step
-config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
+# config["policy_opt_steps_per_global_step"] = args.policy_opt_steps_per_global_step
+# config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
 config["oversample"] = args.oversample_expert
+config["entropy_penalty"] = args.entropy_penalty
 
 if args.record_video_sample_for_rollout:
     config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")

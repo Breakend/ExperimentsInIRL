@@ -10,7 +10,7 @@ class Discriminator(object):
         self.input_dim = input_dim
         self.output_dim_class = output_dim_class
         self.output_dim_dom = output_dim_dom
-        self.learning_rate = 0.01
+        self.learning_rate = 0.001
         self.loss = None
         self.discrimination_logits = None
         self.optimizer = None
@@ -109,13 +109,14 @@ class Discriminator(object):
         return tf.Variable(tf.random_uniform(filter_shape, minval=low, maxval=high, dtype=tf.float32))
         #return tf.Variable(tf.random_normal(filter_shape, mean=0.01, stddev=0.001, dtype=tf.float32))
 
-    def get_loss_layer(self, pred, target_output, use_entropy_penalty = True):
+    def get_loss_layer(self, pred, target_output):
         # http://stackoverflow.com/questions/40698709/tensorflow-interpretation-of-weight-in-weighted-cross-entropy
         # self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
 
         cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=target_output)#, pos_weight=self.pos_weighting)
-        if use_entropy_penalty:
-            cross_entropy -= .001*logit_bernoulli_entropy(pred)
+
+        if "entropy_penalty" in self.config and self.config["entropy_penalty"] > 0.0:
+            cross_entropy -= float(self.config["entropy_penalty"])*logit_bernoulli_entropy(pred)
         cost = tf.reduce_sum(cross_entropy, axis=0)
 
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)

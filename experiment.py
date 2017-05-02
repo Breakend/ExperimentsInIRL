@@ -51,7 +51,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         batch_size=number_of_sample_trajectories*traj_len, # This is actually used internally by the sampler. We make use of this sampler to generate our samples, hence we pass it here
         max_path_length=traj_len, # same with this value. A cleaner way may be to create our own sampler, but for now doing it this way..
         n_itr=40,
-        discount=0.99,
+        discount=0.995,
         step_size=0.01,
         optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5), max_backtracks=40)
     )

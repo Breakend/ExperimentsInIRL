@@ -5,6 +5,8 @@ from rllab.policies.uniform_control_policy import UniformControlPolicy
 from rllab.algos.nop import NOP
 from rllab.baselines.zero_baseline import ZeroBaseline
 import numpy as np
+from scipy.stats import norm
+import tensorflow as tf
 
 class Trainer(object):
 
@@ -31,8 +33,9 @@ class Trainer(object):
         self.max_replays = 3
         self.replay_index = 0
         self.replay_times = 40
-        self.train_cost_per_iters = 5
         self.should_train_cost = True
+        self.prev_reward_dist = None
+        self.is_first_disc_update = True
 
         # as in traditional GANs, we add failure noise
         self.noise_fail_policy = UniformControlPolicy(env.spec)
@@ -41,8 +44,8 @@ class Trainer(object):
             env=env,
             policy=self.noise_fail_policy,
             baseline=self.zero_baseline,
-            batch_size=4000,
-            max_path_length=500,
+            batch_size=5,
+            max_path_length=200,
             n_itr=5,
             discount=0.995,
             step_size=0.01,
@@ -59,64 +62,79 @@ class Trainer(object):
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
         # for optimizing the trajectories
         # import pdb; pdb.set_trace()
-        novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
+        orig_novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
+        novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
 
-
-
-        # if we're using a cost trainer train it?
-        if self.cost_trainer and self.iteration % self.train_cost_per_iters == 0:
-            random_rollouts = self.rand_algo.sampler.obtain_samples(itr = self.iteration)
-
-            novice_rollouts_tensor = tensor_utils.stack_tensor_list([path["observations"] for path in novice_rollouts])
-            # novice_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='zero') for a in novice_rollouts_tensor])
-            random_rollouts_tensor = tensor_utils.stack_tensor_list([path["observations"] for path in random_rollouts])
-            # random_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='zero') for a in random_rollouts_tensor])
-
-            train_novice_data = novice_rollouts_tensor
-            # Replace first 5 novice rollouts by random policy trajectory
-            # if config["algorithm"] != "apprenticeship":# ew hack
-            #     train_novice_data[:5] = random_rollouts_tensor[:5]
-
-            ave_loss, ave_acc = self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=2, num_frames=self.num_frames)
-
-
-        novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
-        policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
         print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
         print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
+
+        mu, std = norm.fit(np.concatenate([np.array(p['rewards']).reshape(-1) for p in novice_rollouts]))
+        dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
+
+        # if we're using a cost trainer train it?
+        if self.cost_trainer and self.should_train_cost:
+            random_rollouts = self.rand_algo.sampler.obtain_samples(itr = self.iteration)
+
+            train_novice_data = novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
+            random_rollouts_tensor = [path["observations"] for path in random_rollouts]
+            prev_cost_dist = dist
+
+            # TODO: replace random noise with experience replay
+            # Replace first 5 novice rollouts by random policy trajectory
+            if config["algorithm"] != "apprenticeship":# ew hack
+                # append the two lists
+                assert type(novice_rollouts_tensor) is list
+                assert type(random_rollouts_tensor) is list
+                train_novice_data = novice_rollouts_tensor + random_rollouts_tensor
+
+            train = True
+            while train:
+                if self.is_first_disc_update:
+                    num_epochs = 10
+                    self.is_first_disc_update = False
+                else:
+                    num_epochs = 1
+                ave_loss, ave_acc = self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=num_epochs, num_frames=self.num_frames)
+
+                novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
+                mu, std = norm.fit(np.concatenate([np.array(p['rewards']).reshape(-1) for p in novice_rollouts]))
+                dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
+                kl_divergence = tf.contrib.distributions.kl(dist, prev_cost_dist)
+                kl = self.sess.run(kl_divergence)
+                print("Cost training reward KL divergence: %f" % kl)
+                if kl >= .01:
+                    train = False
+                # if kl >= .1:
+                # Probably need to lower the learning rate so we don't diverge from the distribution so much?
+
+
+            self.should_train_cost = False
+            self.prev_reward_dist = dist
+
+        policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
+
         # import pdb; pdb.set_trace()
+        # print("Number of policy opt epochs %d" % policy_opt_epochs)
 
 
-        # optimize the novice policy by one step
-        # TODO: put this in a config provider or something?
-        if "policy_opt_steps_per_global_step" in config:
-            policy_opt_epochs = config["policy_opt_steps_per_global_step"]
-            learning_schedule = False
-        else:
-            learning_schedule = False
-            policy_opt_epochs = 1
-
-        if "policy_opt_learning_schedule" in config:
-            learning_schedule = config["policy_opt_learning_schedule"]
-
-        print("Number of policy opt epochs %d" % policy_opt_epochs)
-
-        if learning_schedule:
-            # override the policy epochs for larger number of iterations
-            policy_opt_epochs *= 2**int(self.iteration/100)
-            policy_opt_epochs = min(policy_opt_epochs, 5)
-            print("increasing policy opt epochs to %d" % policy_opt_epochs )
-
-        for i in range(policy_opt_epochs):
+        # TODO: make this not a tf function, seems like too much overhead
+        if self.prev_reward_dist:
             # import pdb; pdb.set_trace()
-            if i >= 1:
-                # Resample so TRPO doesn't just reject all the steps
-                novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
-                novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
-                policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
+            kl_divergence = tf.contrib.distributions.kl(dist, self.prev_reward_dist)
+            kl = self.sess.run(kl_divergence)
 
-            self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
-            self.iteration += 1
+            print("Reward distribution KL divergence since last cost update %f"% kl)
+
+            if kl >= .03:
+                self.should_train_cost = True
+
+        # Resample so TRPO doesn't just reject all the steps
+        novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
+        novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
+        policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
+
+        self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
+        self.iteration += 1
 
         if dump_datapoints:
             self.cost_trainer.dump_datapoints(self.num_frames)
