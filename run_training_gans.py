@@ -111,7 +111,7 @@ for i in range(args.num_experiments):
     true_rewards_variance = np.var(true_rewards, axis=0)
     true_rewards_std = np.sqrt(true_rewards_variance)
 
-    lr_flag = "lrschedule" if args.policy_opt_learning_schedule else "nolrschedule"
+    lr_flag = "nolrschedule"
 
     with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag), "wb") as output_file:
         pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)

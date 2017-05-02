@@ -17,6 +17,7 @@ import tensorflow as tf
 
 from tensorpack import *
 from tensorpack.RL import *
+from custom_gym_env import *
 from common import play_one_episode
 
 IMAGE_SIZE = (84, 84)
@@ -29,7 +30,7 @@ ENV_NAME = None
 
 
 def get_player(dumpdir=None):
-    pl = GymEnv(ENV_NAME, dumpdir=dumpdir, auto_restart=False)
+    pl = CustomGymEnv(ENV_NAME, dumpdir=dumpdir, auto_restart=False)
     pl = MapPlayerState(pl, lambda img: cv2.resize(img, IMAGE_SIZE[::-1]))
 
     global NUM_ACTIONS
