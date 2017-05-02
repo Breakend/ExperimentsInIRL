@@ -1,11 +1,5 @@
 # ExperimentsInIRL
 
-Our project presentation is: rl-presentation.pdf
-
-Our project report is: report.pdf
-
-----------------------------------
-
 We have several different IRL methods here:
 
 apprenticeship learning via reinforcement learning (not very stable, but should reach an optimal policy after about 3000 iterations, but can diverge quickly, run_training_gans.py with the correct parameter)
