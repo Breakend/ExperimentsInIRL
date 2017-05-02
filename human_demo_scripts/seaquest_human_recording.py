@@ -11,7 +11,7 @@ import pickle
 # Test yourself as a learning agent! Pass environment name as a command-line argument.
 #
 
-env = gym.make('MontezumaRevenge-v0' if len(sys.argv)<2 else sys.argv[1])
+env = gym.make('Seaquest-v0')
 
 # 3 - left
 # 4 - right
@@ -24,44 +24,36 @@ if not hasattr(env.action_space, 'n'):
 ACTIONS = env.action_space.n
 print("Actions %d" % ACTIONS)
 ROLLOUT_TIME = 100000
-SKIP_CONTROL = 0   # Use previous control decision SKIP_CONTROL times, that's how you
+SKIP_CONTROL = 0    # Use previous control decision SKIP_CONTROL times, that's how you
                     # can test what skip is still usable.
 
 human_agent_action = 0
 human_wants_restart = False
 human_sets_pause = False
 
-keys_pressed = []
-key_map = {'a' : 4, 's':5, 'w':2, 'd':3, ' ': 1, ' d' : 11, ' a' : 12, 'ds' : 3, 'as': 4, 'aw': 4, 'dw': 3 }
-
 def key_press(key, mod):
     global human_agent_action, human_wants_restart, human_sets_pause
     if key==0xff0d: human_wants_restart = True
     if key==65506: human_sets_pause = not human_sets_pause
     # print(key)
-    keys_pressed.append(key)
-    key_combo = ''.join([chr(x) for x in sorted(keys_pressed)])
 
-    if key_combo in key_map:
-        a = key_map[key_combo]
+    key_map = {'a' : 4, 's':5, 'w':2, 'd':3, ' ': 1}
+    if chr(key) in key_map:
+        a = key_map[chr(key)]
     else:
-        print("keycombo %s not found" % key_combo)
         return
 
+    # a =
     if a <= 0 or a >= ACTIONS: return
     human_agent_action = a
 
 def key_release(key, mod):
     global human_agent_action
-    key_combo = ''.join([chr(x) for x in sorted(keys_pressed)])
-    keys_pressed.remove(key)
-
-    if key_combo in key_map:
-        a = key_map[key_combo]
+    key_map = {'a' : 4, 's':5, 'w':2, 'd':3, ' ': 1}
+    if chr(key) in key_map:
+        a = key_map[chr(key)]
     else:
-        print("keycombo %s not found" % key_combo)
         return
-
     if a <= 0 or a >= ACTIONS: return
     if human_agent_action == a:
         human_agent_action = 0
@@ -112,7 +104,6 @@ def rollout(env):
         rgb = env.render('rgb_array')
         upscaled = repeat_upsample(rgb, 2, 2)
         viewer.imshow(upscaled)
-        time.sleep(0.035)
         if done: break
         if human_wants_restart: break
         while human_sets_pause:
@@ -122,7 +113,7 @@ def rollout(env):
             time.sleep(0.1)
 
 # print("ACTIONS={}".format(ACTIONS))
-print("Press awsd to move and space bar to jump!")
+print("Press awsd to move and space bar to shoot! Don't forget to collect a diver before trying to get oxygen again!")
 # print("No keys pressed is taking action 0")
 
 rollout(env)
@@ -132,5 +123,5 @@ reward = np.sum(rewards)
 
 viewer.close()
 
-with open("%s-human-demo-reward-%s.pickle" % (timestr, reward), "wb") as output_file:
+with open("%s-human-demo-Seaquest-v0-reward-%s.pickle" % (timestr, reward), "wb") as output_file:
     pickle.dump(dict(observations=observations, actions=actions), output_file)
