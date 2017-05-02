@@ -21,6 +21,7 @@ https://github.com/bstadie/third_person_im
 https://github.com/jangirrishabh/toyCarIRL
 https://github.com/MatthewJA/Inverse-Reinforcement-Learning
 https://github.com/openai/rllab
+https://github.com/ppwwyyxx/tensorpack
 
 ----------------------------------
 

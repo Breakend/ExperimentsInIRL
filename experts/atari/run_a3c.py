@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: run-atari.py
 # Author: Yuxin Wu <ppwwyyxxc@gmail.com>
+# FROM: https://github.com/ppwwyyxx/tensorpack
 
 import numpy as np
 import os

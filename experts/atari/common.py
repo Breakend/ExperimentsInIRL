@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: common.py
 # Author: Yuxin Wu <ppwwyyxxc@gmail.com>
+# From: https://github.com/ppwwyyxx/tensorpack
 import random
 import time
 import threading
