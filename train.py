@@ -128,11 +128,6 @@ class Trainer(object):
             if kl >= .03:
                 self.should_train_cost = True
 
-        # Resample so TRPO doesn't just reject all the steps
-        novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
-        novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
-        policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
-
         self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
         self.iteration += 1
 
