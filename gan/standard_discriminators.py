@@ -383,7 +383,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             mean, var = tf.nn.moments(termination_importance_values, axes=[0])
             cv = var/mean
             importance_weight = self.config["importance_weights"]
-            self.loss += importance_weight*1e-2*tf.nn.l2_loss(cv)
+            self.loss += importance_weight*tf.nn.l2_loss(cv)
 
         if self.config["use_mutual_info_penalty"]:
             print("Using Mutual info penalty")
@@ -403,7 +403,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
 
                 mi += mutual_info
             importance_weight = self.config["importance_weights"]
-            self.loss += (importance_weight*1e-2)*tf.nn.l2_loss(mi)
+            self.loss += (importance_weight)*tf.nn.l2_loss(mi)
 
         # label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
         #                   tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))
