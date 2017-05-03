@@ -4,7 +4,7 @@ import numpy as np
 
 class GANCostTrainer(object):
 
-    def __init__(self, input_dims, config={}):
+    def __init__(self, input_dims, config=None):
         # input_dims is the size of the feature vectors
         self.disc = ConvStateBasedDiscriminator(input_dims, config=config)
 

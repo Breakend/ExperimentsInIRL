@@ -4,7 +4,7 @@ from .utils import *
 
 class GANCostTrainerWithRewardOptions(object):
 
-    def __init__(self, input_dims, number_of_options=4, mixtures=False, config={}):
+    def __init__(self, input_dims, number_of_options=4, mixtures=False, config=None):
         """
         TODO: this is a hack for now, but right now just treat the mixtures param as a flag and have a super class set it for the mixtures model
         """
@@ -46,5 +46,5 @@ class GANCostTrainerWithRewardOptions(object):
 
 class GANCostTrainerWithRewardMixtures(GANCostTrainerWithRewardOptions):
 
-    def __init__(self, input_dims, number_of_options=4, config = {}):
-        super(GANCostTrainerWithRewardMixtures, self).__init__(input_dims, number_of_options, mixtures=True, config={})
+    def __init__(self, input_dims, number_of_options=4, config = None):
+        super(GANCostTrainerWithRewardMixtures, self).__init__(input_dims, number_of_options, mixtures=True, config=config)

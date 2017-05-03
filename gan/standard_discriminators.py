@@ -1,12 +1,13 @@
 import tensorflow as tf
 import numpy as np
-from .nn_utils import logit_bernoulli_entropy, logsigmoid
+from .nn_utils import logit_bernoulli_entropy, logsigmoid, log10, TINY
 import matplotlib.pyplot as plt
+import itertools
 
 # This is mostly taken and modified from: https://github.com/Breakend/third_person_im/blob/master/sandbox/bradly/third_person/discriminators/discriminator.py
 
 class Discriminator(object):
-    def __init__(self, input_dim, output_dim_class=2, output_dim_dom=None, tf_sess=None, config={}):
+    def __init__(self, input_dim, output_dim_class=2, output_dim_dom=None, tf_sess=None, config=None):
         self.input_dim = input_dim
         self.output_dim_class = output_dim_class
         self.output_dim_dom = output_dim_dom
@@ -49,7 +50,7 @@ class Discriminator(object):
 
     def eval(self, data, softmax=True):
         if softmax is True:
-            if "short_run_is_bad" in self.config and not self.config["short_run_is_bad"]:
+            if not self.config["short_run_is_bad"]:
                 logits = tf.nn.sigmoid(self.discrimination_logits) - 1.0
             else:
                 logits = tf.nn.sigmoid(self.discrimination_logits)
@@ -126,7 +127,7 @@ class Discriminator(object):
 class ConvStateBasedDiscriminator(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, dim_output=1, config={}):
+    def __init__(self, input_dim, dim_output=1, config=None):
         super(ConvStateBasedDiscriminator, self).__init__(input_dim, config=config)
         self.make_network(dim_input=input_dim, dim_output=dim_output)
         self.init_tf()
@@ -216,7 +217,7 @@ class ConvStateBasedDiscriminator(Discriminator):
 class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, nn_input, target, dim_output=1, scope="external", tf_sess=None, config={}):
+    def __init__(self, input_dim, nn_input, target, dim_output=1, scope="external", tf_sess=None, config=None):
         with tf.variable_scope(scope):
             super(ConvStateBasedDiscriminatorWithExternalIO, self).__init__(input_dim, tf_sess=tf_sess, config=config)
             self.make_network(input_dim, dim_output, nn_input, target)
@@ -288,8 +289,8 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
         self.discrimination_logits = fc_output
         # self.optimizer = optimizer
         # self.loss = loss
-        label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
-                          tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))
+        label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
+
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
     @staticmethod
@@ -305,7 +306,7 @@ class ConvStateBasedDiscriminatorWithExternalIO(Discriminator):
 class ConvStateBasedDiscriminatorWithOptions(Discriminator):
     """ A state based descriminator, assuming a state vector """
 
-    def __init__(self, input_dim, num_options=4, mixtures=True, config={}):
+    def __init__(self, input_dim, num_options=4, mixtures=True, config=None):
         super(ConvStateBasedDiscriminatorWithOptions, self).__init__(input_dim, config=config)
         self.num_options = num_options
         # TODO: move the other args into the config
@@ -341,7 +342,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         # and in that way keep information from the state and transfer it to the image inputs.
         # NOTE: if we don't do this and you see this in our code and decide to do it, please reach out to us first.
 
-        termination_options = ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, self.num_options)
+        termination_options = ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, self.num_options, config=self.config)
 
         #TODO: make this configurable
         k = 1
@@ -355,7 +356,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             # self.termination_softmax_logits = tf.one_hot(tf.nn.top_k(self.termination_softmax_logits).indices, tf.shape(self.termination_softmax_logits)[0])
 
         for i in range(self.num_options):
-            discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, scope="option%d"%i))
+            discriminator_options.append(ConvStateBasedDiscriminatorWithExternalIO(dim_input, nn_input, target, scope="option%d"%i, config=self.config))
 
         # try to make the weights sparse so we dropout features
         if self.use_l1_loss:
@@ -375,14 +376,34 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
 
         # add importance to loss
         termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
+
+        if self.config["use_cv_penalty"]:
+            print("Using CV penalty")
         # import pdb; pdb.set_trace()
-        mean, var = tf.nn.moments(termination_importance_values, axes=[0])
-        cv = var/mean
-        if "importance_weight" in self.config:
-            importance_weight = config["importance_weight"]
-        else:
-            importance_weight = 0.00
-        self.loss += importance_weight*tf.nn.l2_loss(cv)
+            mean, var = tf.nn.moments(termination_importance_values, axes=[0])
+            cv = var/mean
+            importance_weight = self.config["importance_weights"]
+            self.loss += importance_weight*1e-2*tf.nn.l2_loss(cv)
+
+        if self.config["use_mutual_info_penalty"]:
+            print("Using Mutual info penalty")
+            combos = [item for idx, item in enumerate(itertools.combinations(range(len(discriminator_options)), 2))]
+            mi = tf.Variable(0, dtype=tf.float32)
+            for (i,j) in combos:
+                # As defined in equation (4) @ https://www.cs.bham.ac.uk/~xin/papers/IJHIS-03-009-yao-liu.pdf
+                mean_i, var_i = tf.nn.moments(discriminator_options[i].discrimination_logits, axes=[0])
+                mean_j, var_j = tf.nn.moments(discriminator_options[j].discrimination_logits, axes=[0])
+                mean_ij, var_ij = tf.nn.moments(tf.multiply(discriminator_options[i].discrimination_logits,
+                                                        discriminator_options[j].discrimination_logits), axes=[0])
+                # TODO: ^ Does this make sense mathematically ??
+                corr_numerator = mean_ij-mean_i*mean_j
+                corr_denominator = tf.square(var_i)*tf.square(var_j) + TINY
+                corr_coeff = corr_numerator/corr_denominator
+                mutual_info = -(1/2.0) * log10(1-tf.square(corr_coeff))
+
+                mi += mutual_info
+            importance_weight = self.config["importance_weights"]
+            self.loss += (importance_weight*1e-2)*tf.nn.l2_loss(mi)
 
         # label_accuracy = tf.equal(tf.argmax(self.class_target, 1),
         #                   tf.argmax(tf.nn.sigmoid(self.discrimination_logits), 1))

@@ -46,6 +46,8 @@ parser.add_argument("--record_video_sample_for_rollout", action="store_true")
 parser.add_argument("--regularize_observation_space", action="store_true")
 parser.add_argument("--oversample_expert", action="store_true")
 parser.add_argument("--entropy_penalty", default=.001, type=float)
+parser.add_argument("--use_cv_penalty", action="store_true")
+parser.add_argument("--use_mutual_info_penalty", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -77,6 +79,8 @@ config["num_novice_rollouts"] = args.num_novice_rollouts
 # config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
 config["oversample"] = args.oversample_expert
 config["entropy_penalty"] = args.entropy_penalty
+config["use_mutual_info_penalty"] = args.use_mutual_info_penalty
+config["use_cv_penalty"] = args.use_cv_penalty
 
 if args.record_video_sample_for_rollout:
     config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")
