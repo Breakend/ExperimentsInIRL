@@ -27,11 +27,11 @@ class Trainer(object):
         # self.sampler = BaseSampler(self.novice_policy_optimizer)
         self.concat_timesteps = concat_timesteps
         self.num_frames = num_frames
-        self.replay_buffer = {}
-        self.max_replays = 3
-        self.replay_index = 0
-        self.replay_times = 40
-        self.train_cost_per_iters = 3
+        # self.replay_buffer = {}
+        # self.max_replays = 3
+        # self.replay_index = 0
+        # self.replay_times = 40
+        self.train_cost_per_iters = 2
 
         # as in traditional GANs, we add failure noise
         self.noise_fail_policy = UniformControlPolicy(env.spec)
@@ -46,7 +46,7 @@ class Trainer(object):
             discount=0.995,
             step_size=0.01,
         )
-        self.rand_algo.start_worker() # TODO: Call this in constructor instead ?
+        self.rand_algo.start_worker()
         self.rand_algo.init_opt()
 
     def step(self, expert_rollouts_tensor, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
@@ -57,8 +57,8 @@ class Trainer(object):
         # This does things like calculate advantages and entropy, etc.
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
         # for optimizing the trajectories
-        # import pdb; pdb.set_trace()
         novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
+        import pdb; pdb.set_trace()
         novice_rollouts = process_samples_with_reward_extractor(novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
 
         policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
@@ -78,7 +78,7 @@ class Trainer(object):
             train_novice_data = novice_rollouts_tensor
             # Replace first 5 novice rollouts by random policy trajectory
             if config["algorithm"] != "apprenticeship":# ew hack
-                train_novice_data[:5] = random_rollouts_tensor[:5]
+                train_novice_data[:20] = random_rollouts_tensor[:20]
 
             # novice_rollouts_tensor = tensor_utils.pad_tensor_n(novice_rollouts_tensor, expert_horizon)
             # novice_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, expert_horizon, mode='last') for a in novice_rollouts_tensor])

@@ -20,21 +20,25 @@ import tensorflow as tf
 import pickle
 import argparse
 
-def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1, traj_len=200, config={}):
+def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, oversample = False, iterations=30, num_frames=1, traj_len=200, im_input=True, config={}):
 
     expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
     # import pdb; pdb.set_trace()
 
     # TODO: hack to generically load dimensions of structuresx
     # import pdb; pdb.set_trace()
-    obs_dims = len(expert_rollouts[0]['observations'][0])
-    # traj_len = len(expert_rollouts[0]['observations'])
+
+    if im_input:
+        obs_dims = (len(expert_rollouts[0]['im_observations'][0]), len(expert_rollouts[0]['im_observations'][0][0]))
+    else:
+        obs_dims = len(expert_rollouts[0]['observations'][0])
 
     if "num_novice_rollouts" in config:
         number_of_sample_trajectories = config["num_novice_rollouts"]
     else:
         number_of_sample_trajectories = len(expert_rollouts)
     print(number_of_sample_trajectories)
+
     policy = CategoricalMLPPolicy(
     name="policy",
     env_spec=env.spec,
@@ -75,7 +79,6 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     true_rewards = []
     actual_rewards = []
 
-    oversample = True
     expert_rollouts_tensor = [path["observations"] for path in expert_rollouts]
     expert_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, traj_len, mode='last') for a in expert_rollouts_tensor])
     # expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
@@ -89,6 +92,8 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     with tf.Session() as sess:
         algo.start_worker()
 
+        # TODO: Change the following line or top to make obs_dims a tuple ?
+        # Ie take into account WxH for image.
         cost_trainer = cost_trainer_type([num_frames, obs_dims], config=config)
 
         trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo, num_frames=num_frames)

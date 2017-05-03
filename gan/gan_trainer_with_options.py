@@ -9,7 +9,7 @@ class GANCostTrainerWithRewardOptions(object):
         TODO: this is a hack for now, but right now just treat the mixtures param as a flag and have a super class set it for the mixtures model
         """
         # input_dims is the size of the feature vectors
-        self.disc = ConvStateBasedDiscriminatorWithOptions(input_dims, mixtures=mixtures, config=config)
+        self.disc = ConvStateBasedDiscriminatorWithOptions(input_dims, im_input=True, mixtures=mixtures, config=config)
 
     def get_reward(self, samples):
         return self.disc.eval(samples)[:, 0]

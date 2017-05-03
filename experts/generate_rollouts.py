@@ -8,6 +8,70 @@ import argparse
 import pickle, h5py, numpy as np, time
 from collections import defaultdict
 import gym
+from rllab.misc import tensor_utils
+
+
+def animate_rollout_seq(env, agent, max_path_length=200, reward_extractor = None, speedup = 1, get_image_observations=True, num_frames=4, concat_timesteps=True):
+    """
+    Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
+    Generate a rollout for a given policy
+    """
+    if hasattr(agent,"reset"): agent.reset()
+
+    observations = []
+    im_observations = []
+    actions = []
+    rewards = []
+    agent_infos = []
+    env_infos = []
+    o = env.reset()
+    path_length = 0
+
+    while path_length < max_path_length:
+        o = agent.obfilt(o)
+        a, agent_info = agent.act(o)
+        next_o, r, d, env_info = env.step(a)
+        pixel_array = env.render(mode="rgb_array")
+
+        # observations.append(env.observation_space.flatten(o))
+        observations.append(o)
+        if d:
+            rewards.append(0.0)
+        else:
+            rewards.append(r)
+        # actions.append(env.action_space.flatten(a))
+        actions.append(a)
+        agent_infos.append(agent_info)
+        env_infos.append(env_info)
+        path_length += 1
+        o = next_o
+        if get_image_observations:
+            pixel_array = env.render(mode="rgb_array")
+            if len(pixel_array) == 0:
+                # Not convinced that behaviour works for all environments, so until
+                # such a time as I'm convinced of this, drop into a debug shell
+                print("Problem! Couldn't get pixels! Dropping into debug shell.")
+                import pdb; pdb.set_trace()
+            im_observations.append(pixel_array)
+
+    # if animated:
+    # env.render(close=True)
+
+    im_observations = tensor_utils.stack_tensor_list(im_observations)
+
+    observations = tensor_utils.stack_tensor_list(observations)
+
+    rewards = tensor_utils.stack_tensor_list(rewards)
+    true_rewards = rewards
+    return dict(
+        observations=observations,
+        im_observations=im_observations,
+        actions=tensor_utils.stack_tensor_list(actions),
+        rewards=rewards,
+        true_rewards=true_rewards,
+        agent_infos=tensor_utils.stack_tensor_dict_list(agent_infos),
+        env_infos=tensor_utils.stack_tensor_dict_list(env_infos),
+    )
 
 def animate_rollout(env, agent, n_timesteps, collect_images=False, delay=.01):
     infos = defaultdict(list)
@@ -71,13 +135,13 @@ def main():
 
     # while True:
     rollouts = []
-    for i in range(args.num_rollouts):
-        infos = animate_rollout(env,agent,n_timesteps=timestep_limit,
-            delay=1.0/env.metadata.get('video.frames_per_second', 30), collect_images=args.collect_images)
-        rollouts.append(infos)
-        # raw_input("press enter to continue")
 
-    pickle.dump(rollouts, open("expert_rollouts_%s.o"%args.hdf.split("/")[-1], "w"))
+    for iter_step in range(0, args.num_rollouts):
+        rollouts.append(animate_rollout_seq(agent=agent, env=env, max_path_length=timestep_limit, get_image_observations=args.collect_images,  num_frames=4, concat_timesteps=True))
+        # rollouts.append(animate_rollout(agent=agent, env=env, n_timesteps=timestep_limit))
+
+    pickle.dump(rollouts, open("expert_rollouts_%s.o"%args.hdf.split("/")[-1], "wb"))
+    print "Dumped rollouts !"
 
 if __name__ == "__main__":
     main()

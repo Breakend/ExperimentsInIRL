@@ -32,7 +32,7 @@ def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200,
     paths = []
 
     for iter_step in range(0, number_of_trajectories):
-        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=reward_extractor, num_frames=num_frames, concat_timesteps=concat_timesteps))
+        paths.append(rollout_policy(agent=policy, env=env, max_path_length=horizon, reward_extractor=reward_extractor, num_frames=num_frames, get_image_observations=im_input, concat_timesteps=concat_timesteps))
 
     return paths
 
@@ -44,9 +44,10 @@ def process_samples_with_reward_extractor(samples, reward_extractor, concat_time
     for sample in samples:
         if concat_timesteps:
             true_rewards = sample['rewards']
-            observations = sample['observations']
+            # observations = sample['observations']
+            observations = sample['im_observations']
             obs_pls_three = np.zeros((observations.shape[0], num_frames, observations.shape[1]))
-            # import pdb; pdb.set_trace()
+            import pdb; pdb.set_trace()
             for iter_step in range(0, obs_pls_three.shape[0]):
                 for i in range(num_frames):
                     idx_plus_three = min(iter_step+num_frames, obs_pls_three.shape[0]-1)
@@ -92,7 +93,6 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
                 # Not convinced that behaviour works for all environments, so until
                 # such a time as I'm convinced of this, drop into a debug shell
                 print("Problem! Couldn't get pixels! Dropping into debug shell.")
-                import pdb; pdb.set_trace()
             im_observations.append(pixel_array)
 
     # if animated:
