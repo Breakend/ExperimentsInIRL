@@ -38,7 +38,7 @@ class NumpyStateRewardRecordingMonitor(Wrapper):
 
         if len(self.rewards) > 0:
             with open("%s/%s-%s-episode%d-numpy-wrapper-demo-Seaquest-v0-reward-%s.pickle" % (self.dump_dir, self.name,timestr, self.episode_num, reward), "wb") as output_file:
-                pickle.dump(dict(observations=self.observations, actions=self.actions), output_file)
+                pickle.dump(dict(observations=self.observations, rewards=self.rewards, actions=self.actions), output_file)
 
         observation = self.env.reset()
         self.rewards = []

@@ -124,4 +124,4 @@ reward = np.sum(rewards)
 viewer.close()
 
 with open("%s-human-demo-Seaquest-v0-reward-%s.pickle" % (timestr, reward), "wb") as output_file:
-    pickle.dump(dict(observations=observations, actions=actions), output_file)
+    pickle.dump(dict(observations=observations, rewards=rewards, actions=actions), output_file)
