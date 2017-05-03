@@ -13,35 +13,14 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=
     n_trajs_nov = len(on_policy_data)
 
     # TODO: for images should be nxmxc
-    feature_space = len(expert_data[0][0]) # number of features in the observation data
-    # import pdb; pdb.set_trace()
-
-
-    # data = expert_data + on_policy_data # merge the two lists of rollouts
-    # TODO: this is all kinds of messed up
-
+    if len(expert_data[0][0].shape) > 1:
+        # assume image
+        feature_space = np.product(expert_data[0][0].shape)
+    else:
+        feature_space = len(expert_data[0][0]) # number of features in the observation data
 
     expert_class = np.ones((1,))
     novice_class = np.zeros((1,))
-
-    # TODO: can't tile until horizon, need to tile dynamically...
-
-    # expert_classes = np.tile(e_10, (n_trajs_exp, horizon, 1))
-    # novice_classes = np.tile(e_01, (n_trajs_nov, horizon, 1))
-    # import pdb; pdb.set_trace()
-    # classes = np.vstack([expert_classes, novice_classes])
-    # domains = np.vstack([expert_data['domains'], on_policy_data['domains'], expert_fail_data['domains']])
-
-
-
-    # sample_range = np.sum([len(x) for x in expert_data]) + np.sum([len(x) for x in on_policy_data])
-    # all_idxs = np.random.permutation(sample_range)
-    #
-    # t_steps = data.shape[1]
-
-    # # This is ok
-    # data_matrix = np.zeros(shape=(sample_range, num_frames, feature_space))
-    # class_matrix = np.zeros(shape=(sample_range, 1))
 
     all_datas = []
     all_classes = []
@@ -53,7 +32,7 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=
             # TODO: replicate this in the extract rewards function
             for t in range(0, num_frames):
                 time_key_plus_one = max(time_key - t, 0)
-                data_matrix[0, num_frames-t-1, :] = rollout[time_key_plus_one, :]
+                data_matrix[0, num_frames-t-1, :] = np.reshape(rollout[time_key_plus_one, :], (1, -1))
             all_datas.append(data_matrix)
             all_classes.append(expert_class)
 
@@ -65,7 +44,7 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=
             # TODO: replicate this in the extract rewards function
             for t in range(0, num_frames):
                 time_key_plus_one = max(time_key - t, 0)
-                data_matrix[0, num_frames-t-1, :] = rollout[time_key_plus_one, :]
+                data_matrix[0, num_frames-t-1, :] = np.reshape(rollout[time_key_plus_one, :], (1, -1))
             all_datas.append(data_matrix)
             all_classes.append(novice_class)
 

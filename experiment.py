@@ -22,18 +22,22 @@ import argparse
 
 def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, cost_trainer_type, iterations=30, num_frames=1, traj_len=200, config={}):
 
+    # Load the expert rollouts into memory
     expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
-    # import pdb; pdb.set_trace()
 
-    # TODO: hack to generically load dimensions of structuresx
-    # import pdb; pdb.set_trace()
-    obs_dims = len(expert_rollouts[0]['observations'][0])
-    # traj_len = len(expert_rollouts[0]['observations'])
+    if type(expert_rollouts) is dict:
+        expert_rollouts = [expert_rollouts]
+
+    if config["img_input"]:
+        obs_dims = expert_rollouts[0]['observations'][0].shape
+    else:
+        obs_dims = len(expert_rollouts[0]['observations'][0])
 
     if "num_novice_rollouts" in config:
         number_of_sample_trajectories = config["num_novice_rollouts"]
     else:
         number_of_sample_trajectories = len(expert_rollouts)
+
     print(number_of_sample_trajectories)
     policy = CategoricalMLPPolicy(
     name="policy",

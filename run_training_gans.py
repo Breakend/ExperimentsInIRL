@@ -20,7 +20,6 @@ ext.set_seed(1)
 
 from train import Trainer
 from gan.gan_trainer import GANCostTrainer
-from gan.wgan_trainer import WGANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions, GANCostTrainerWithRewardMixtures
 from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrainer
 
@@ -48,13 +47,13 @@ parser.add_argument("--oversample_expert", action="store_true")
 parser.add_argument("--entropy_penalty", default=.001, type=float)
 parser.add_argument("--use_cv_penalty", action="store_true")
 parser.add_argument("--use_mutual_info_penalty", action="store_true")
+parser.add_argument("--img_input", action="store_true", help="The observation space of the environment is images.")
 args = parser.parse_args()
 
 # TODO: clean this up
 arg_to_cost_trainer_map = {"rlgan" : GANCostTrainer,
                            "optiongan" : GANCostTrainerWithRewardOptions,
                            "mixgan" : GANCostTrainerWithRewardMixtures,
-                           "wgan": WGANCostTrainer,
                            "apprenticeship": ApprenticeshipCostLearningTrainer}
 
 if args.algorithm not in arg_to_cost_trainer_map.keys():
@@ -81,13 +80,14 @@ config["oversample"] = args.oversample_expert
 config["entropy_penalty"] = args.entropy_penalty
 config["use_mutual_info_penalty"] = args.use_mutual_info_penalty
 config["use_cv_penalty"] = args.use_cv_penalty
+config["img_input"] = args.img_input # TODO: also force any classic envs to use image inputs as well
 
 if args.record_video_sample_for_rollout:
     config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")
 
 # We need to know if this env has bad short runs or not. i.e. mountain car ending early is good, but cartpole ending early is bad
 # We don't make this an arg so people don't accidentally forget.
-bad_short_runs_mapping = {"MountainCar-v0" : False, "CartPole-v0": True}
+bad_short_runs_mapping = {"MountainCar-v0" : False, "CartPole-v0": True, "Seaquest-v0": True}
 
 if args.env not in bad_short_runs_mapping.keys():
     raise Exception("Env %s not supported. Supported envs: %s" % (args.env, ", ".join(bad_short_runs_mapping.keys())))

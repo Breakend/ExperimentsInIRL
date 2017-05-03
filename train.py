@@ -124,7 +124,7 @@ class Trainer(object):
             kl = self.sess.run(kl_divergence)
 
             print("Reward distribution KL divergence since last cost update %f"% kl)
-            kl_with_decay = .02 - (1.0e-5 * self.iteration)
+            kl_with_decay = .015 - (1.0e-5 * self.iteration)
             if kl >= kl_with_decay:
                 self.should_train_cost = True
 
