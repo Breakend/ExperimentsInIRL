@@ -8,7 +8,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.gym_env import GymEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
 from sandbox.rocky.tf.policies.categorical_conv_policy import CategoricalConvPolicy
-from sampling_utils import load_expert_rollouts, rollout_policy
+from sampling_utils import load_expert_rollouts, rollout_policy, shorten_tensor_dict
 import numpy as np
 from rllab.misc import tensor_utils
 import gym.wrappers
@@ -29,6 +29,9 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     # In the case that we only have one expert rollout in the file
     if type(expert_rollouts) is dict:
         expert_rollouts = [expert_rollouts]
+
+    #TODO: make this configurable
+    expert_rollouts = [shorten_tensor_dict(x, 2000) for x in expert_rollouts]
 
     # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
     print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['rewards']) for p in expert_rollouts]))
@@ -66,10 +69,10 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         policy = CategoricalConvPolicy(
             name="policy",
             env_spec=env.spec,
-            conv_filters=[100,100],
-            conv_filter_sizes=[3,3],
-            conv_strides=[1,1],
-            conv_pads=['SAME', 'SAME'],
+            conv_filters=[64, 128, 64],
+            conv_filter_sizes=[3, 3, 3],
+            conv_strides=[1, 1, 1],
+            conv_pads=['SAME', 'SAME', 'SAME'],
             # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
             hidden_sizes=[100, 100]
         )

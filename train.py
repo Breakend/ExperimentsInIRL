@@ -46,7 +46,7 @@ class Trainer(object):
             baseline=self.zero_baseline,
             batch_size=5,
             max_path_length=200,
-            n_itr=5,
+            n_itr=1,
             discount=0.995,
             step_size=0.01,
         )

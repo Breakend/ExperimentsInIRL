@@ -16,6 +16,17 @@ class BaseTransformer(object):
     def transformed_observation_space(self, prev_observation_space):
         raise NotImplementedError
 
+class SimpleNormalizePixelIntensitiesTransformer(BaseTransformer):
+    """
+    Normalizes pixel intensities simply by dividing by 255.
+    """
+    @overrides
+    def transform(self, observation):
+        return observation / 255.
+
+    @overrides
+    def transformed_observation_space(self, wrapped_observation_space):
+        return wrapped_observation_space
 
 class ResizeImageTransformer(BaseTransformer):
 

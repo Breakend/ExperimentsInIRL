@@ -24,7 +24,7 @@ from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions, GANCos
 from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrainer
 
 from envs.observation_transform_wrapper import ObservationTransformWrapper
-from envs.transformers import ResizeImageTransformer
+from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer
 
 from experiment import *
 import tensorflow as tf
@@ -73,9 +73,9 @@ config = {}
 
 if args.img_input:
     #TODO: assert that all image inputs are between 0 and 1 otherwise divide by 255
-    transformer = ResizeImageTransformer(fraction_of_current_size=.25)
-    config["transformers"] = [transformer]
-    transformed_env = ObservationTransformWrapper(gymenv, transformer)
+    transformers = [ResizeImageTransformer(fraction_of_current_size=.15), SimpleNormalizePixelIntensitiesTransformer()]
+    config["transformers"] = transformers
+    transformed_env = ObservationTransformWrapper(gymenv, transformers)
 else:
     reg_obs = True if args.regularize_observation_space else False #is this necessary?
     transformed_env = normalize(gymenv, normalize_obs=reg_obs)
