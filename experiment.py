@@ -7,11 +7,12 @@ from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.gym_env import GymEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
+from sandbox.rocky.tf.policies.categorical_conv_policy import CategoricalConvPolicy
 from sampling_utils import load_expert_rollouts, rollout_policy
 import numpy as np
 from rllab.misc import tensor_utils
 import gym.wrappers
-
+from tqdm import tqdm
 from train import Trainer
 # from gan.gan_trainer import GANCostTrainer
 # from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
@@ -25,13 +26,31 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     # Load the expert rollouts into memory
     expert_rollouts = load_expert_rollouts(expert_rollout_pickle_path)
 
+    # In the case that we only have one expert rollout in the file
     if type(expert_rollouts) is dict:
         expert_rollouts = [expert_rollouts]
 
+    # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
+    print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['rewards']) for p in expert_rollouts]))
+
+
+    if "transformers" in config and len(config["transformers"]) > 0:
+        print("Transforming expert rollouts...")
+        for rollout in tqdm(expert_rollouts):
+            transformed_observations = []
+            for ob in tqdm(rollout["observations"]):
+                for transformer in config["transformers"]:
+                    ob = transformer.transform(ob)
+                transformed_observations.append(ob)
+            rollout["observations"] = np.array(transformed_observations)
+
+    # Handle both flattened state input and image input
+    # TODO: this could be done better by looking at just the shape and determining from that
     if config["img_input"]:
         obs_dims = expert_rollouts[0]['observations'][0].shape
     else:
         obs_dims = len(expert_rollouts[0]['observations'][0])
+
 
     if "num_novice_rollouts" in config:
         number_of_sample_trajectories = config["num_novice_rollouts"]
@@ -39,12 +58,28 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         number_of_sample_trajectories = len(expert_rollouts)
 
     print(number_of_sample_trajectories)
-    policy = CategoricalMLPPolicy(
-    name="policy",
-    env_spec=env.spec,
-    # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-    hidden_sizes=(100, 100)
-    )
+
+    # Choose a policy (Conv based on images, mlp based on states)
+    # TODO: may also have to switch out categorical for something else in continuous state spaces??
+    # Let's just avoid that for now?
+    if config["img_input"]:
+        policy = CategoricalConvPolicy(
+            name="policy",
+            env_spec=env.spec,
+            conv_filters=[100,100],
+            conv_filter_sizes=[3,3],
+            conv_strides=[1,1],
+            conv_pads=['SAME', 'SAME'],
+            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+            hidden_sizes=[100, 100]
+        )
+    else:
+        policy = CategoricalMLPPolicy(
+            name="policy",
+            env_spec=env.spec,
+            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+            hidden_sizes=(100, 100)
+        )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -61,34 +96,22 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     )
 
 
+    # Prune the number of rollouts if that option is enabled
     if "num_expert_rollouts" in config:
         rollouts_to_use = min(config["num_expert_rollouts"], len(expert_rollouts))
         expert_rollouts = expert_rollouts[:rollouts_to_use]
         print("Only using %d expert rollouts" % rollouts_to_use)
 
-
-
-    # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
-    print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['rewards']) for p in expert_rollouts]))
-    # import pdb; pdb.set_trace()
-
-
-
-
-    # import pdb; pdb.set_trace()
     true_rewards = []
     actual_rewards = []
 
-
+    # Extract observations to a tensor
     expert_rollouts_tensor = tensor_utils.stack_tensor_list([path["observations"] for path in expert_rollouts])
-    # expert_rollouts_tensor = np.asarray([tensor_utils.pad_tensor(a, traj_len, mode='zero') for a in expert_rollouts_tensor])
-    # expert_rollouts_tensor = tensor_utils.pad_tensor_n(expert_rollouts_tensor, traj_len)
 
     if "oversample" in config and config["oversample"]:
         oversample_rate = max(int(number_of_sample_trajectories / len(expert_rollouts_tensor)), 1.)
         expert_rollouts_tensor = expert_rollouts_tensor.repeat(oversample_rate, axis=0)
         print("oversampling %d times to %d" % (oversample_rate, len(expert_rollouts_tensor)))
-
 
     with tf.Session() as sess:
         algo.start_worker()
@@ -109,20 +132,19 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             if "recording_env" in config:
                 novice_rollouts = rollout_policy(policy, config["recording_env"], get_image_observations=False, max_path_length=200)
 
-
-
         novice_rollouts = algo.obtain_samples(iter_step)
 
         rollout_rewards = [np.sum(x['rewards']) for x in novice_rollouts]
 
-
         print("Reward stats for final policy: %f +/- %f " % (np.mean(rollout_rewards), np.std(rollout_rewards)))
 
-
         algo.shutdown_worker()
-        # TODO: should we overwrite the policy
+
+        # save the novice policy learned
         with open(trained_policy_pickle_path, "wb") as output_file:
             pickle.dump(policy, output_file)
+
+        # TODO: also save the reward function?
 
 
     return true_rewards, actual_rewards

@@ -23,6 +23,9 @@ from gan.gan_trainer import GANCostTrainer
 from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions, GANCostTrainerWithRewardMixtures
 from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrainer
 
+from envs.observation_transform_wrapper import ObservationTransformWrapper
+from envs.transformers import ResizeImageTransformer
+
 from experiment import *
 import tensorflow as tf
 import pickle
@@ -65,11 +68,21 @@ if args.algorithm not in arg_to_cost_trainer_map.keys():
 gymenv = GymEnv(args.env, force_reset=True)
 
 gymenv.env.seed(1)
-reg_obs = True if args.regularize_observation_space else False #is this necessary?
-env = TfEnv(normalize(gymenv, normalize_obs=reg_obs))
+
+config = {}
+
+if args.img_input:
+    #TODO: assert that all image inputs are between 0 and 1 otherwise divide by 255
+    transformer = ResizeImageTransformer(fraction_of_current_size=.25)
+    config["transformers"] = [transformer]
+    transformed_env = ObservationTransformWrapper(gymenv, transformer)
+else:
+    reg_obs = True if args.regularize_observation_space else False #is this necessary?
+    transformed_env = normalize(gymenv, normalize_obs=reg_obs)
+
+env = TfEnv(transformed_env)
 
 #TODO: don't do this, should just eat args into config
-config = {}
 config["algorithm"] = args.algorithm
 config["importance_weights"] = args.importance_weights
 config["num_expert_rollouts"] = args.num_expert_rollouts
