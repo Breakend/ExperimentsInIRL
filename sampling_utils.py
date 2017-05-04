@@ -2,6 +2,19 @@ import pickle
 from rllab.misc import tensor_utils
 import numpy as np
 
+def shorten_tensor_dict(tensor_dict, max_len):
+    keys = list(tensor_dict.keys())
+    ret = dict()
+    for k in keys:
+        if isinstance(tensor_dict[k], dict):
+            ret[k] = shorten_tensor_dict(tensor_dict[k], max_len)
+        else:
+            ret[k] = shorten_tensor(tensor_dict[k], max_len)
+    return ret
+
+def shorten_tensor(x, max_len):
+    return x[:max_len]
+
 def sample_policy_trajectories(policy, number_of_trajectories, env, horizon=200, reward_extractor=None, num_frames=4, concat_timesteps=True):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
