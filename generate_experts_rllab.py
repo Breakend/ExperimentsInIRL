@@ -5,6 +5,7 @@ from rllab.misc.instrument import stub, run_experiment_lite
 
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
+from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import FiniteDifferenceHvp
@@ -37,12 +38,19 @@ gymenv = GymEnv(args.env, force_reset=True)
 # gymenv.env.seed(124)
 env = TfEnv(normalize(gymenv, normalize_obs=True))
 
-policy = CategoricalMLPPolicy(
-name="policy",
-env_spec=env.spec,
-# The neural network policy should have two hidden layers, each with 32 hidden units.
-hidden_sizes=(32, 32)
-)
+if env.spec.action_space == 'Discrete':
+    policy = CategoricalMLPPolicy(
+    name="policy",
+    env_spec=env.spec,
+    # The neural network policy should have two hidden layers, each with 32 hidden units.
+    hidden_sizes=(32, 32)
+    )
+else:
+    policy = GaussianMLPPolicy(
+    name="policy",
+    env_spec=env.spec,
+    hidden_sizes=(100, 50, 25)
+    )
 
 baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -52,8 +60,8 @@ algo = TRPO(
     env=env,
     policy=policy,
     baseline=baseline,
-    batch_size=5000,
-    max_path_length=200,
+    batch_size=5000, # Mujoco tasks need 20000-50000
+    max_path_length=200, # And 500
     n_itr=iters,
     discount=0.99,
     step_size=0.01,
