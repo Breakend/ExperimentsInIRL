@@ -111,6 +111,7 @@ class Trainer(object):
             self.should_train_cost = False
             self.prev_reward_dist = dist
 
+
         policy_training_samples = self.novice_policy_optimizer.process_samples(itr=self.iteration, paths=novice_rollouts)
 
         # import pdb; pdb.set_trace()
@@ -128,7 +129,9 @@ class Trainer(object):
             if kl >= kl_with_decay:
                 self.should_train_cost = True
 
-        self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_samples)
+        total_len = len(policy_training_samples['observations'])
+        for policy_training_sample_batch in batchify_dict(policy_training_samples, batch_size=config["policy_opt_batch_size"], total_len=total_len): #TODO: configurable batch_size
+            self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_sample_batch)
         self.iteration += 1
 
         if dump_datapoints:

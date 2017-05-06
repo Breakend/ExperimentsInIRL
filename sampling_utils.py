@@ -2,6 +2,26 @@ import pickle
 from rllab.misc import tensor_utils
 import numpy as np
 
+
+
+def batchify_dict(samples, batch_size, total_len):
+    for i in range(0, total_len, batch_size):
+        yield select_from_tensor_dict(samples, i, min(total_len, i+batch_size))
+
+def select_from_tensor_dict(tensor_dict, start, end):
+    keys = list(tensor_dict.keys())
+    ret = dict()
+    for k in keys:
+        if isinstance(tensor_dict[k], dict):
+            ret[k] = select_from_tensor_dict(tensor_dict[k], start, end)
+        else:
+            ret[k] = select_from_tensor(tensor_dict[k], start, end)
+    return ret
+
+def select_from_tensor(x, start, end):
+    return x[start:end]
+
+
 def shorten_tensor_dict(tensor_dict, max_len):
     keys = list(tensor_dict.keys())
     ret = dict()

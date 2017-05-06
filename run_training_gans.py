@@ -51,6 +51,7 @@ parser.add_argument("--entropy_penalty", default=.001, type=float)
 parser.add_argument("--use_cv_penalty", action="store_true")
 parser.add_argument("--use_mutual_info_penalty", action="store_true")
 parser.add_argument("--img_input", action="store_true", help="The observation space of the environment is images.")
+parser.add_argument("--policy_opt_batch_size", default=2000, type=int, help="Batch size of the features to feed into the policy optimization step.")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -94,6 +95,7 @@ config["entropy_penalty"] = args.entropy_penalty
 config["use_mutual_info_penalty"] = args.use_mutual_info_penalty
 config["use_cv_penalty"] = args.use_cv_penalty
 config["img_input"] = args.img_input # TODO: also force any classic envs to use image inputs as well
+config["policy_opt_batch_size"] = args.policy_opt_batch_size
 
 if args.record_video_sample_for_rollout:
     config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")
