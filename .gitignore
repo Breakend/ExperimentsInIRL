@@ -94,3 +94,4 @@ novices/*
 *rewards_data.pickle
 *human-demo*.pickle
 experts/atari/output_dir/
+inception_checkpoints/*.ckpt

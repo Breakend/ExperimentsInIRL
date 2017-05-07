@@ -2,7 +2,6 @@ import matplotlib as mpl
 mpl.use('Agg')
 
 from sandbox.rocky.tf.algos.trpo import TRPO
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import FiniteDifferenceHvp
@@ -25,6 +24,7 @@ from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrai
 
 from envs.observation_transform_wrapper import ObservationTransformWrapper
 from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer
+from envs.tf_transformers import InceptionTransformer
 
 from experiment import *
 import tensorflow as tf
@@ -52,6 +52,8 @@ parser.add_argument("--use_cv_penalty", action="store_true")
 parser.add_argument("--use_mutual_info_penalty", action="store_true")
 parser.add_argument("--img_input", action="store_true", help="The observation space of the environment is images.")
 parser.add_argument("--policy_opt_batch_size", default=2000, type=int, help="Batch size of the features to feed into the policy optimization step.")
+parser.add_argument("--inception_transformer_checkpoint_path", help="If you want to use the inception transformer provide a checkpoint path.")
+
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -71,10 +73,16 @@ gymenv = GymEnv(args.env, force_reset=True)
 gymenv.env.seed(1)
 
 config = {}
+config["img_input"] = args.img_input # TODO: also force any classic envs to use image inputs as well
 
 if args.img_input:
-    #TODO: assert that all image inputs are between 0 and 1 otherwise divide by 255
-    transformers = [ResizeImageTransformer(fraction_of_current_size=.15), SimpleNormalizePixelIntensitiesTransformer()]
+    if args.inception_transformer_checkpoint_path:
+        inception_t = InceptionTransformer(gymenv.spec.observation_space.low.shape, args.inception_transformer_checkpoint_path)
+        transformers = [SimpleNormalizePixelIntensitiesTransformer(), inception_t]
+        # hack, right now inception outputs (1,N) so we want to treat this as simply a large state space
+        config["img_input"] = False
+    else:
+        transformers = [SimpleNormalizePixelIntensitiesTransformer(), ResizeImageTransformer(fraction_of_current_size=.35)]
     config["transformers"] = transformers
     transformed_env = ObservationTransformWrapper(gymenv, transformers)
 else:
@@ -94,7 +102,6 @@ config["oversample"] = args.oversample_expert
 config["entropy_penalty"] = args.entropy_penalty
 config["use_mutual_info_penalty"] = args.use_mutual_info_penalty
 config["use_cv_penalty"] = args.use_cv_penalty
-config["img_input"] = args.img_input # TODO: also force any classic envs to use image inputs as well
 config["policy_opt_batch_size"] = args.policy_opt_batch_size
 
 if args.record_video_sample_for_rollout:

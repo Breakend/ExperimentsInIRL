@@ -1,5 +1,7 @@
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+# from baselines.tf_linear_feature_baseline import LinearFeatureBaseline
+
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import FiniteDifferenceHvp
@@ -33,6 +35,8 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     #TODO: make this configurable
     expert_rollouts = [shorten_tensor_dict(x, traj_len) for x in expert_rollouts]
 
+    # import pdb; pdb.set_trace()
+
     # Sanity check, TODO: should prune any "expert" rollouts with suboptimal reward?
     print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['rewards']) for p in expert_rollouts]))
 
@@ -52,6 +56,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     if config["img_input"]:
         obs_dims = expert_rollouts[0]['observations'][0].shape
     else:
+        # import pdb; pdb.set_trace()
         obs_dims = len(expert_rollouts[0]['observations'][0])
 
 
@@ -65,16 +70,16 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     # Choose a policy (Conv based on images, mlp based on states)
     # TODO: may also have to switch out categorical for something else in continuous state spaces??
     # Let's just avoid that for now?
-    if False: #config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
+    if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
         policy = CategoricalConvPolicy(
             name="policy",
             env_spec=env.spec,
-            conv_filters=[64, 128, 64],
+            conv_filters=[32, 64, 64],
             conv_filter_sizes=[3, 3, 3],
             conv_strides=[1, 1, 1],
             conv_pads=['SAME', 'SAME', 'SAME'],
             # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-            hidden_sizes=[400, 300]
+            hidden_sizes=[200, 200]
         )
     else:
         policy = CategoricalMLPPolicy(
