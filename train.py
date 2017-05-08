@@ -7,6 +7,8 @@ from rllab.baselines.zero_baseline import ZeroBaseline
 import numpy as np
 from scipy.stats import norm
 import tensorflow as tf
+import gc
+import time
 
 class Trainer(object):
 
@@ -36,7 +38,8 @@ class Trainer(object):
         self.should_train_cost = True
         self.prev_reward_dist = None
         self.is_first_disc_update = True
-
+        self.gc_time = time.time()
+        self.gc_time_threshold = 60 # seconds between garbage collection
         # as in traditional GANs, we add failure noise
         self.noise_fail_policy = UniformControlPolicy(env.spec)
         self.zero_baseline = ZeroBaseline(env_spec=env.spec)
@@ -61,7 +64,6 @@ class Trainer(object):
         # This does things like calculate advantages and entropy, etc.
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
         # for optimizing the trajectories
-        # import pdb; pdb.set_trace()
         orig_novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
         novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames)
 
@@ -136,6 +138,10 @@ class Trainer(object):
 
         if dump_datapoints:
             self.cost_trainer.dump_datapoints(self.num_frames)
+
+        if time.time() - self.gc_time > self.gc_time_threshold:
+            gc.collect()
+            self.gc_time = time.time()
 
         print("Training Iteration (Full Novice Rollouts): %d" % self.iteration)
         return np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]), np.mean([np.sum(p['rewards']) for p in novice_rollouts])
