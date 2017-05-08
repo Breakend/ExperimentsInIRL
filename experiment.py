@@ -1,4 +1,5 @@
 from sandbox.rocky.tf.algos.trpo import TRPO
+from rllab.baselines.zero_baseline import ZeroBaseline
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 # from baselines.tf_linear_feature_baseline import LinearFeatureBaseline
 
@@ -10,6 +11,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.gym_env import GymEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
 from sandbox.rocky.tf.policies.categorical_conv_policy import CategoricalConvPolicy
+from sandbox.rocky.tf.spaces.discrete import Discrete
 from sampling_utils import load_expert_rollouts, rollout_policy, shorten_tensor_dict
 import numpy as np
 from rllab.misc import tensor_utils
@@ -81,7 +83,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
             hidden_sizes=[200, 200]
         )
-    elif env.spec.action_space == 'Discrete':
+    elif type(env.spec.action_space) == Discrete:
         policy = CategoricalMLPPolicy(
             name="policy",
             env_spec=env.spec,
@@ -95,7 +97,12 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             hidden_sizes=(100, 50, 25)
         )
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec)
+    if config["img_input"]:
+        # TODO: right now the linear feature baseline is too computationally expensive to actually use
+        # with full image inputs, so for now just use the zero baseline
+        baseline = ZeroBaseline(env_spec=env.spec)
+    else:
+        baseline = LinearFeatureBaseline(env_spec=env.spec)
 
     algo = TRPO(
         env=env,
