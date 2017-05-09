@@ -43,7 +43,7 @@ parser.add_argument("--num_expert_rollouts", default=20, type=int)
 parser.add_argument("--num_novice_rollouts", default=None, type=int, help="Default none means that it\'ll match the number of expert rollouts.")
 # parser.add_argument("--policy_opt_steps_per_global_step", default=1, type=int)
 # parser.add_argument("--policy_opt_learning_schedule", action="store_true")
-parser.add_argument("--max_path_length", default=200, type=int)
+parser.add_argument("--max_path_length", default=-1, type=int)
 parser.add_argument("--record_video_sample_for_rollout", action="store_true")
 parser.add_argument("--regularize_observation_space", action="store_true")
 parser.add_argument("--oversample_expert", action="store_true")
@@ -71,6 +71,15 @@ if args.algorithm not in arg_to_cost_trainer_map.keys():
 gymenv = GymEnv(args.env, force_reset=True)
 
 gymenv.env.seed(1)
+
+gym_env_max_length = gymenv.horizon
+
+max_path_length = args.max_path_length
+
+if args.max_path_length <= 0:
+    max_path_length = gym_env_max_length
+
+print("Using a Maximum Path Length of %d" % max_path_length)
 
 config = {}
 config["img_input"] = args.img_input # TODO: also force any classic envs to use image inputs as well
@@ -130,7 +139,7 @@ for i in range(args.num_experiments):
                                                               iterations=args.iterations,
                                                               num_frames=args.num_frames,
                                                               config=config,
-                                                              traj_len=args.max_path_length)
+                                                              traj_len=max_path_length)
         true_rewards.append(true_rewards_exp)
 
     avg_true_rewards = np.mean(true_rewards, axis=0)
