@@ -109,7 +109,11 @@ if args.record_video_sample_for_rollout:
 
 # We need to know if this env has bad short runs or not. i.e. mountain car ending early is good, but cartpole ending early is bad
 # We don't make this an arg so people don't accidentally forget.
-bad_short_runs_mapping = {"MountainCar-v0" : False, "CartPole-v0": True, "Seaquest-v0": True, "InvertedPendulum-v1":True}
+bad_short_runs_mapping = {"MountainCar-v0" : False, "CartPole-v0": True,
+                          "Seaquest-v0": True, "InvertedPendulum-v1":True,
+                          "Hopper-v1":True, "Humanoid-v1":True,
+                          "HalfCheetah-v1":True, "Ant-v1":True,
+                          "Reacher-v1":True, "Walker2d-v1":True}
 
 if args.env not in bad_short_runs_mapping.keys():
     raise Exception("Env %s not supported. Supported envs: %s" % (args.env, ", ".join(bad_short_runs_mapping.keys())))
