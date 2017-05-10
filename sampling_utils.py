@@ -1,12 +1,18 @@
 import pickle
 from rllab.misc import tensor_utils
 import numpy as np
-
+import time
+from tqdm import tqdm
 
 
 def batchify_dict(samples, batch_size, total_len):
     for i in range(0, total_len, batch_size):
         yield select_from_tensor_dict(samples, i, min(total_len, i+batch_size))
+
+def batchify_list(samples, batch_size):
+    total_len = len(samples)
+    for i in range(0, total_len, batch_size):
+        yield select_from_tensor(samples, i, min(total_len, i+batch_size))
 
 def select_from_tensor_dict(tensor_dict, start, end):
     keys = list(tensor_dict.keys())
@@ -51,8 +57,9 @@ def load_expert_rollouts(filepath):
     # why encoding? http://stackoverflow.com/questions/11305790/pickle-incompatability-of-numpy-arrays-between-python-2-and-3
     return pickle.load(open(filepath, "rb"), encoding='latin1')
 
-def process_samples_with_reward_extractor(samples, reward_extractor, concat_timesteps, num_frames):
-    for sample in samples:
+def process_samples_with_reward_extractor_no_batch(samples, reward_extractor, concat_timesteps, num_frames):
+    t0 = time.time()
+    for sample in tqdm(samples):
         if reward_extractor:
             true_rewards = sample['rewards']
             observations = sample['observations']
@@ -66,12 +73,57 @@ def process_samples_with_reward_extractor(samples, reward_extractor, concat_time
                     time_key_plus_one = max(time_key - t, 0)
                     data_matrix[0, num_frames-t-1, :] = observations[time_key_plus_one, :]
                 all_datas.append(data_matrix)
-
             rewards = reward_extractor.get_reward(np.vstack(all_datas))
             sample['rewards'] = rewards
             sample['true_rewards'] = true_rewards
         else:
             sample['true_rewards'] = sample['rewards']
+
+    t1 = time.time()
+    print("Time to process samples: %d" % (t1-t0))
+    return samples
+
+def process_samples_with_reward_extractor(samples, reward_extractor, concat_timesteps, num_frames, batch_size=2000):
+    t0 = time.time()
+    super_all_datas = []
+    # splits = []
+    if reward_extractor:
+        # convert all the data to the proper format, concat frames if needed
+        for sample in samples:
+            true_rewards = sample['rewards']
+            observations = sample['observations']
+            feature_space = len(observations[0])
+            all_datas = []
+            for time_key in range(len(observations)):
+                data_matrix = np.zeros(shape=(1, num_frames, feature_space))
+                # we want the first thing in the sequence to be repeated until we have enough to form a sequence
+                # TODO: replicate this in the extract rewards function
+                for t in range(0, num_frames):
+                    time_key_plus_one = max(time_key - t, 0)
+                    data_matrix[0, num_frames-t-1, :] = observations[time_key_plus_one, :]
+                # all_datas.append(data_matrix)
+                super_all_datas.append(data_matrix)
+
+        extracted_rewards = []
+        for batch in batchify_list(np.vstack(super_all_datas), batch_size): #TODO: make batch_size configurable
+            extracted_rewards.extend(np.split(reward_extractor.get_reward(batch), len(batch))) #TODO: unnecessary computation here
+
+        index = 0
+        extracted_rewards = np.vstack(extracted_rewards)
+        for sample in samples:#len(extracted_rewards):
+            sample['true_rewards'] = sample['rewards']
+            num_obs = len(sample['observations'])
+            sample['rewards'] = select_from_tensor(extracted_rewards, index, index+num_obs).reshape(-1)
+            if len(sample['true_rewards']) != len(sample['rewards']):
+                import pdb; pdb.set_trace()
+                raise Exception("Problem, extracted rewards not equal in length to old rewards!")
+            index += num_obs
+    else:
+        for sample in tqdm(samples):
+            sample['true_rewards'] = sample['rewards']
+
+    t1 = time.time()
+    print("Time to process samples: %d" % (t1-t0))
     return samples
 
 def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False, num_frames=4, concat_timesteps=True):
