@@ -8,12 +8,18 @@ from rllab.core.serializable import Serializable
 4
 class InceptionTransformer(BaseTransformer, Serializable):
 
-    def __init__(self, input_dims, inception_checkpoint_path, sess = None):
+    def __init__(self, input_dims, inception_checkpoint_path, sess = None, use_activation=False):
         Serializable.quick_init(self, locals())
+        self.use_activation = use_activation
         if sess is None:
             sess = tf.Session()
         init_fn, self.inputs, self.net_out = pre_trained_net(input_dims, inception_checkpoint_path)
-        self.net_out = tf.reshape(tf.tanh(self.net_out), [-1])
+
+        if use_activation:
+            self.net_out = tf.reshape(tf.tanh(self.net_out), [-1])
+        else:
+            self.net_out = tf.reshape(self.net_out, [-1])
+
         # import pdb; pdb.set_trace()
         self.out_shape = self.net_out.get_shape().as_list()
         init_fn(sess)
@@ -26,6 +32,9 @@ class InceptionTransformer(BaseTransformer, Serializable):
     @overrides
     def transformed_observation_space(self, wrapped_observation_space):
         if type(wrapped_observation_space) is Box:
-            return Box(0.0, 1.0, self.out_shape)
+            if self.use_activation:
+                return Box(0.0, 1.0, self.out_shape)
+            else:
+                return Box(0.0, 10.0, self.out_shape)
         else:
             raise NotImplementedError("Currently only support Box observation spaces for InceptionTransformer")
