@@ -53,7 +53,7 @@ parser.add_argument("--use_mutual_info_penalty", action="store_true")
 parser.add_argument("--img_input", action="store_true", help="The observation space of the environment is images.")
 parser.add_argument("--policy_opt_batch_size", default=2000, type=int, help="Batch size of the features to feed into the policy optimization step.")
 parser.add_argument("--inception_transformer_checkpoint_path", help="If you want to use the inception transformer provide a checkpoint path.")
-
+parser.add_argument("--generate_option_graphs", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -112,6 +112,7 @@ config["entropy_penalty"] = args.entropy_penalty
 config["use_mutual_info_penalty"] = args.use_mutual_info_penalty
 config["use_cv_penalty"] = args.use_cv_penalty
 config["policy_opt_batch_size"] = args.policy_opt_batch_size
+config["generate_option_graphs"] = args.generate_option_graphs
 
 if args.record_video_sample_for_rollout:
     config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")

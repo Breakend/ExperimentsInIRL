@@ -47,8 +47,8 @@ class Trainer(object):
             env=env,
             policy=self.noise_fail_policy,
             baseline=self.zero_baseline,
-            batch_size=5,
-            max_path_length=200,
+            batch_size=1*self.env.horizon,
+            max_path_length=self.env.horizon,
             n_itr=1,
             discount=0.995,
             step_size=0.01,
@@ -127,7 +127,7 @@ class Trainer(object):
             kl = self.sess.run(kl_divergence)
 
             print("Reward distribution KL divergence since last cost update %f"% kl)
-            kl_with_decay = .015 - (1.0e-5 * self.iteration)
+            kl_with_decay = .1 * (.96 * self.iteration/20)
             if kl >= kl_with_decay:
                 self.should_train_cost = True
 

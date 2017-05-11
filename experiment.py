@@ -144,7 +144,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
 
         for iter_step in range(0, iterations):
-            dump_data = (iter_step == (iterations-1)) # is last iteration
+            dump_data = (iter_step == (iterations-1)) and config["generate_option_graphs"]# is last iteration
             true_reward, actual_reward = trainer.step(expert_rollouts_tensor=expert_rollouts_tensor, dump_datapoints=dump_data, config=config, expert_horizon=traj_len, number_of_sample_trajectories=number_of_sample_trajectories)
             true_rewards.append(true_reward)
             actual_rewards.append(actual_reward)

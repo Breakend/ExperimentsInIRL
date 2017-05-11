@@ -1,13 +1,14 @@
 import numpy as np
 import tensorflow as tf
 import sklearn #utils.shuffle
-
+import time
 
 def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=200): #TODO: make sure to pass horizon in
     """
     Takes in expert_data as, on_policy_data, expert_fail_data as a stacked tensor of just the observation data
     #TODO: removed faildata? is this necessary?
     """
+    t0 = time.time()
     # import pdb; pdb.set_trace()
     n_trajs_exp = len(expert_data)
     n_trajs_nov = len(on_policy_data)
@@ -54,7 +55,8 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=
     class_matrix = np.vstack(all_classes)
 
     data_matrix, class_matrix = sklearn.utils.shuffle(data_matrix, class_matrix)
-
+    t1 = time.time()
+    print("Time to shuffle/batch samples: %d" % (t1-t0))
     return data_matrix, class_matrix
 
 def shuffle_to_training_data_single(data, novice=True, num_frames=4):
