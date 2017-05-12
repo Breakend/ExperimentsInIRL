@@ -90,6 +90,7 @@ class Trainer(object):
                 train_novice_data = novice_rollouts_tensor + random_rollouts_tensor
 
             train = True
+            cost_t_steps = 0
             while train:
                 if self.is_first_disc_update:
                     num_epochs = 10
@@ -104,7 +105,8 @@ class Trainer(object):
                 kl_divergence = tf.contrib.distributions.kl(dist, prev_cost_dist)
                 kl = self.sess.run(kl_divergence)
                 print("Cost training reward KL divergence: %f" % kl)
-                if kl >= .01:
+                cost_t_steps += 1
+                if kl >= .01 or cost_t_steps >= 6:
                     train = False
                 # if kl >= .1:
                 # Probably need to lower the learning rate so we don't diverge from the distribution so much?
@@ -127,7 +129,7 @@ class Trainer(object):
             kl = self.sess.run(kl_divergence)
 
             print("Reward distribution KL divergence since last cost update %f"% kl)
-            kl_with_decay = .1 * (.96 * self.iteration/20)
+            kl_with_decay = .1 * (.96 ** self.iteration/20)
             if kl >= kl_with_decay:
                 self.should_train_cost = True
 

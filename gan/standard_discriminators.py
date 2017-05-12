@@ -324,6 +324,51 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
+    def get_loss_layer(self, pred, target_output):
+        # http://stackoverflow.com/questions/40698709/tensorflow-interpretation-of-weight-in-weighted-cross-entropy
+        # self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
+
+        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=target_output)#, pos_weight=self.pos_weighting)
+
+        if "entropy_penalty" in self.config and self.config["entropy_penalty"] > 0.0:
+            cross_entropy -= float(self.config["entropy_penalty"])*logit_bernoulli_entropy(pred)
+        cost = tf.reduce_sum(cross_entropy, axis=0)
+
+        if self.config["use_cv_penalty"]:
+            print("Using CV penalty")
+            mean, var = tf.nn.moments(self.termination_importance_values, axes=[0])
+            cv = var/mean
+            importance_weight = self.config["importance_weights"]
+            cost += importance_weight*tf.nn.l2_loss(cv)
+
+        if self.config["use_mutual_info_penalty"]:
+            print("Using Mutual info penalty")
+            combos = [item for idx, item in enumerate(itertools.combinations(range(len(self.discriminator_options)), 2))]
+            mi = tf.Variable(0, dtype=tf.float32)
+            for (i,j) in combos:
+
+                # cond_ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), self.discriminator_options[j].discrimination_logits), 1))
+                # ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), self.discriminator_options[i].discrimination_logits), 1))
+                # # ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(discriminator_options[i].discrimination_logits, discriminator_options[i].discrimination_logits), 1))
+                # mi += (cond_ent + ent)
+                # As defined in equation (4) @ https://www.cs.bham.ac.uk/~xin/papers/IJHIS-03-009-yao-liu.pdf
+                mean_i, var_i = tf.nn.moments(self.discriminator_options[i].discrimination_logits, axes=[0])
+                mean_j, var_j = tf.nn.moments(self.discriminator_options[j].discrimination_logits, axes=[0])
+                mean_ij, var_ij = tf.nn.moments(tf.multiply(self.discriminator_options[i].discrimination_logits,
+                                                        self.discriminator_options[j].discrimination_logits), axes=[0])
+                # TODO: ^ Does this make sense mathematically ??
+                corr_numerator = mean_ij-mean_i*mean_j
+                corr_denominator = tf.square(var_i)*tf.square(var_j) + TINY
+                corr_coeff = corr_numerator/corr_denominator
+                mutual_info = -(1/2.0) * log10(1-tf.square(corr_coeff))
+
+                mi += mutual_info
+            importance_weight = self.config["importance_weights"]
+            cost += (importance_weight)*tf.nn.l2_loss(mi)
+
+        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
+        return cost, optimizer
+
     def make_network(self, dim_input, dim_output, mixtures=False):
         """
         An example a network in tf that has both state and image inputs.
@@ -373,42 +418,17 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
 
         #TODO: add gaussian noise and top-k? https://arxiv.org/pdf/1701.06538.pdf
         self.class_target = target
-        # import pdb; pdb.set_trace()
         self.nn_input = nn_input
-        #TODO: softmax
+        self.discriminator_options = discriminator_options
         self.discrimination_logits = tf.add_n([tf.transpose(tf.multiply(tf.transpose(x.discrimination_logits), self.termination_softmax_logits[:,i])) for i, x in enumerate(discriminator_options)]) + regularization_penalty
-        # TODO: add importance or dropout to the loss function or something. I.e. have each expert be responsible for a state space somehow. and all the termiantion values should some to 1
+
+        #TODO: what works better, this loss function or each individual loss function
+
         self.loss, self.optimizer = self.get_loss_layer(pred=self.discrimination_logits, target_output=target)
 
         # add importance to loss
-        termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
+        self.termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
 
-        if self.config["use_cv_penalty"]:
-            print("Using CV penalty")
-            mean, var = tf.nn.moments(termination_importance_values, axes=[0])
-            cv = var/mean
-            importance_weight = self.config["importance_weights"]
-            self.loss += importance_weight*tf.nn.l2_loss(cv)
-
-        if self.config["use_mutual_info_penalty"]:
-            print("Using Mutual info penalty")
-            combos = [item for idx, item in enumerate(itertools.combinations(range(len(discriminator_options)), 2))]
-            mi = tf.Variable(0, dtype=tf.float32)
-            for (i,j) in combos:
-                # As defined in equation (4) @ https://www.cs.bham.ac.uk/~xin/papers/IJHIS-03-009-yao-liu.pdf
-                mean_i, var_i = tf.nn.moments(discriminator_options[i].discrimination_logits, axes=[0])
-                mean_j, var_j = tf.nn.moments(discriminator_options[j].discrimination_logits, axes=[0])
-                mean_ij, var_ij = tf.nn.moments(tf.multiply(discriminator_options[i].discrimination_logits,
-                                                        discriminator_options[j].discrimination_logits), axes=[0])
-                # TODO: ^ Does this make sense mathematically ??
-                corr_numerator = mean_ij-mean_i*mean_j
-                corr_denominator = tf.square(var_i)*tf.square(var_j) + TINY
-                corr_coeff = corr_numerator/corr_denominator
-                mutual_info = -(1/2.0) * log10(1-tf.square(corr_coeff))
-
-                mi += mutual_info
-            importance_weight = self.config["importance_weights"]
-            self.loss += (importance_weight)*tf.nn.l2_loss(mi)
 
 
         label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))

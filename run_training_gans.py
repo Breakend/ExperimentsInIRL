@@ -23,7 +23,7 @@ from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions, GANCos
 from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrainer
 
 from envs.observation_transform_wrapper import ObservationTransformWrapper
-from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer
+from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer, RandomSensorMaskTransformer
 from envs.tf_transformers import InceptionTransformer
 
 from experiment import *
@@ -54,6 +54,7 @@ parser.add_argument("--img_input", action="store_true", help="The observation sp
 parser.add_argument("--policy_opt_batch_size", default=2000, type=int, help="Batch size of the features to feed into the policy optimization step.")
 parser.add_argument("--inception_transformer_checkpoint_path", help="If you want to use the inception transformer provide a checkpoint path.")
 parser.add_argument("--generate_option_graphs", action="store_true")
+parser.add_argument("--add_sensor_occlusion_to_experts", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -97,6 +98,10 @@ if args.img_input:
 else:
     reg_obs = True if args.regularize_observation_space else False #is this necessary?
     transformed_env = normalize(gymenv, normalize_obs=reg_obs)
+
+if args.add_sensor_occlusion_to_experts and not args.img_input and not args.inception_transformer_checkpoint_path:
+    transformers = [RandomSensorMaskTransformer(gymenv)]
+    config["transformers"] = transformers
 
 env = TfEnv(transformed_env)
 
