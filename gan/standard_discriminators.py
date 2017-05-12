@@ -423,11 +423,11 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         self.discrimination_logits = tf.add_n([tf.transpose(tf.multiply(tf.transpose(x.discrimination_logits), self.termination_softmax_logits[:,i])) for i, x in enumerate(discriminator_options)]) + regularization_penalty
 
         #TODO: what works better, this loss function or each individual loss function
+        # add importance to loss
+        self.termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
 
         self.loss, self.optimizer = self.get_loss_layer(pred=self.discrimination_logits, target_output=target)
 
-        # add importance to loss
-        self.termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
 
 
 
