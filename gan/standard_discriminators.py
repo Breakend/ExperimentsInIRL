@@ -341,14 +341,14 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             importance_weight = self.config["importance_weights"]
             cost += importance_weight*tf.nn.l2_loss(cv)
 
-        if self.config["use_mutual_info_penalty"]:
+        if self.config["use_mutual_info_penalty_nn_paper"]:
             print("Using Mutual info penalty")
             combos = [item for idx, item in enumerate(itertools.combinations(range(len(self.discriminator_options)), 2))]
             mi = tf.Variable(0, dtype=tf.float32)
             for (i,j) in combos:
 
-                # cond_ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), self.discriminator_options[j].discrimination_logits), 1))
-                # ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), self.discriminator_options[i].discrimination_logits), 1))
+                # cond_ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[j].discrimination_logits)), 1))
+                # ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[i].discrimination_logits)), 1))
                 # # ent = tf.reduce_mean(-tf.reduce_sum(tf.multiply(discriminator_options[i].discrimination_logits, discriminator_options[i].discrimination_logits), 1))
                 # mi += (cond_ent + ent)
                 # As defined in equation (4) @ https://www.cs.bham.ac.uk/~xin/papers/IJHIS-03-009-yao-liu.pdf
@@ -363,6 +363,18 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
                 mutual_info = -(1/2.0) * log10(1-tf.square(corr_coeff))
 
                 mi += mutual_info
+            importance_weight = self.config["importance_weights"]
+            cost += (importance_weight)*tf.nn.l2_loss(mi)
+        elif self.config["use_mutual_info_penalty_infogan"]:
+            print("Using Mutual info penalty")
+            combos = [item for idx, item in enumerate(itertools.combinations(range(len(self.discriminator_options)), 2))]
+            mi = tf.Variable(0, dtype=tf.float32)
+            for (i,j) in combos:
+                # http://wiseodd.github.io/techblog/2017/01/29/infogan/
+                cond_ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[j].discrimination_logits)), 1))
+                ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[i].discrimination_logits)), 1))
+                mi += (cond_ent + ent)
+
             importance_weight = self.config["importance_weights"]
             cost += (importance_weight)*tf.nn.l2_loss(mi)
 

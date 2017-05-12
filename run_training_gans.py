@@ -49,7 +49,8 @@ parser.add_argument("--regularize_observation_space", action="store_true")
 parser.add_argument("--oversample_expert", action="store_true")
 parser.add_argument("--entropy_penalty", default=.001, type=float)
 parser.add_argument("--use_cv_penalty", action="store_true")
-parser.add_argument("--use_mutual_info_penalty", action="store_true")
+parser.add_argument("--use_mutual_info_penalty_nn_paper", action="store_true")
+parser.add_argument("--use_mutual_info_penalty_infogan", action="store_true")
 parser.add_argument("--img_input", action="store_true", help="The observation space of the environment is images.")
 parser.add_argument("--policy_opt_batch_size", default=2000, type=int, help="Batch size of the features to feed into the policy optimization step.")
 parser.add_argument("--inception_transformer_checkpoint_path", help="If you want to use the inception transformer provide a checkpoint path.")
@@ -114,7 +115,8 @@ config["num_novice_rollouts"] = args.num_novice_rollouts
 # config["policy_opt_learning_schedule"] = args.policy_opt_learning_schedule
 config["oversample"] = args.oversample_expert
 config["entropy_penalty"] = args.entropy_penalty
-config["use_mutual_info_penalty"] = args.use_mutual_info_penalty
+config["use_mutual_info_penalty_nn_paper"] = args.use_mutual_info_penalty_nn_paper
+config["use_mutual_info_penalty_infogan"] = args.use_mutual_info_penalty_infogan
 config["use_cv_penalty"] = args.use_cv_penalty
 config["policy_opt_batch_size"] = args.policy_opt_batch_size
 config["generate_option_graphs"] = args.generate_option_graphs
