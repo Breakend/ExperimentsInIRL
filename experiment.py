@@ -19,6 +19,7 @@ from rllab.misc import tensor_utils
 import gym.wrappers
 from tqdm import tqdm
 from train import Trainer
+from gan.nn_utils import *
 # from gan.gan_trainer import GANCostTrainer
 # from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
 
@@ -165,6 +166,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             pickle.dump(policy, output_file)
         # TODO: also save the reward function?
 
+        algo.shutdown_worker()
 
         second_true_rewards = []
         second_actual_rewards = []
@@ -174,21 +176,64 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
             if config['use_prev_options_relearn_mixing_func']:
                 with tf.variable_scope("second_policy"):
-                    second_policy = Serializable.clone(policy) # TODO: start with a fresh policy
+                #     second_policy = Serializable.clone(policy) # TODO: start with a fresh policy
+                    if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
+                        second_policy = CategoricalConvPolicy(
+                            name="policy",
+                            env_spec=config["second_env"].spec,
+                            conv_filters=[32, 64, 64],
+                            conv_filter_sizes=[3, 3, 3],
+                            conv_strides=[1, 1, 1],
+                            conv_pads=['SAME', 'SAME', 'SAME'],
+                            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                            hidden_sizes=[200, 200]
+                        )
+                    elif type(env.spec.action_space) == Discrete:
+                        second_policy = CategoricalMLPPolicy(
+                            name="policy",
+                            env_spec=config["second_env"].spec,
+                            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                            hidden_sizes=(400, 300)
+                        )
+                    else:
+                        second_policy = GaussianMLPPolicy(
+                            name="policy",
+                            env_spec=config["second_env"].spec,
+                            hidden_sizes=(100, 50, 25)
+                        )
+
+                    if config["img_input"]:
+                        # TODO: right now the linear feature baseline is too computationally expensive to actually use
+                        # with full image inputs, so for now just use the zero baseline
+                        baseline = ZeroBaseline(env_spec=config["second_env"].spec)
+                    else:
+                        baseline = LinearFeatureBaseline(env_spec=config["second_env"].spec)
+
+                    algo = TRPO(
+                        env=config["second_env"],
+                        policy=second_policy,
+                        baseline=baseline,
+                        batch_size=number_of_sample_trajectories*traj_len, # This is actually used internally by the sampler. We make use of this sampler to generate our samples, hence we pass it here
+                        max_path_length=traj_len, # same with this value. A cleaner way may be to create our own sampler, but for now doing it this way..
+                        n_itr=40,
+                        discount=0.995,
+                        step_size=0.01,
+                        optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5), max_backtracks=40)
+                    )
 
                 options = cost_trainer.disc.discriminator_options
-                sess.run(tf.global_variables_initializer())
                 cost_trainer.disc._remake_network_from_disc_options(options, stop_gradients = True)
-                sess.run(tf.global_variables_initializer())
 
                 trainer = Trainer(env=config['second_env'],
-                                  sess=sess,cost_approximator=cost_trainer,
+                                  sess=sess,
+                                  cost_approximator=cost_trainer,
                                   cost_trainer=cost_trainer,
                                   novice_policy=second_policy,
                                   novice_policy_optimizer=algo,
                                   num_frames=num_frames)
+                algo.start_worker()
 
-                sess.run(tf.global_variables_initializer())
+                initialize_uninitialized(sess)
 
                 for iter_step in range(0, iterations):
                     dump_data = (iter_step == (iterations-1)) and config["generate_option_graphs"]# is last iteration
@@ -198,9 +243,14 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
                     # run a rollout for the video
                     if "recording_env" in config:
-                        novice_rollouts = rollout_policy(policy, config["recording_env"], get_image_observations=False, max_path_length=200)
+                        novice_rollouts = rollout_policy(second_policy, config["recording_env"], get_image_observations=False, max_path_length=200)
 
-        algo.shutdown_worker()
+                print("Reward stats for final policy: %f +/- %f " % (np.mean(rollout_rewards), np.std(rollout_rewards)))
+                # save the novice policy learned
+                with open(trained_policy_pickle_path, "wb") as output_file:
+                    pickle.dump(second_policy, output_file)
+
+                algo.shutdown_worker()
 
 
 

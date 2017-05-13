@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from .nn_utils import logit_bernoulli_entropy, logsigmoid, log10, TINY
+from .nn_utils import *
 import matplotlib.pyplot as plt
 import sandbox.rocky.tf.core.layers as L
 
@@ -25,10 +25,12 @@ class Discriminator(object):
         self.config = config
 
     def init_tf(self):
+        # Hack to only initialize unitialized variables
         if self.sess is None:
             self.sess = tf.Session()
-        init = tf.global_variables_initializer()
-        self.sess.run(init)
+        initialize_uninitialized(self.sess)
+        # init = tf.global_variables_initializer()
+        # self.sess.run(init)
 
     def make_network(self, dim_input, output_dim_class, output_dim_dom):
         raise NotImplementedError
@@ -401,6 +403,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             for x in discriminator_options:
                 x.discrimination_logits = tf.stop_gradient(x.discrimination_logits)
 
+        # import pdb; pdb.set_trace()
         with tf.variable_scope("second"):
             termination_options = ConvStateBasedDiscriminator(self.input_dim, nn_input=self.nn_input, dim_output=self.num_options, config=self.config)
 
@@ -424,6 +427,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
 
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+        self.init_tf()
 
     def make_network(self, dim_input, dim_output, mixtures=False):
         """

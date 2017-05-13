@@ -160,7 +160,7 @@ true_rewards = []
 for i in range(args.num_experiments):
     print("Running Experiment %d" % i)
     with tf.variable_scope('sess_%d'%i):
-        true_rewards_exp, actual_rewards_exp, _ = run_experiment(args.expert_rollout_pickle_path,
+        true_rewards_exp, actual_rewards_exp, _, _ = run_experiment(args.expert_rollout_pickle_path,
                                                               args.trained_policy_pickle_path,
                                                               env,
                                                               arg_to_cost_trainer_map[args.algorithm],
