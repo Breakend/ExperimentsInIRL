@@ -56,6 +56,8 @@ parser.add_argument("--policy_opt_batch_size", default=2000, type=int, help="Bat
 parser.add_argument("--inception_transformer_checkpoint_path", help="If you want to use the inception transformer provide a checkpoint path.")
 parser.add_argument("--generate_option_graphs", action="store_true")
 parser.add_argument("--add_sensor_occlusion_to_experts", action="store_true")
+parser.add_argument("--second_env", default=None)
+parser.add_argument("--use_prev_options_relearn_mixing_func", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -86,25 +88,29 @@ print("Using a Maximum Path Length of %d" % max_path_length)
 config = {}
 config["img_input"] = args.img_input # TODO: also force any classic envs to use image inputs as well
 
-if args.img_input:
-    if args.inception_transformer_checkpoint_path:
-        inception_t = InceptionTransformer(gymenv.spec.observation_space.low.shape, args.inception_transformer_checkpoint_path)
-        transformers = [SimpleNormalizePixelIntensitiesTransformer(), inception_t]
-        # hack, right now inception outputs (1,N) so we want to treat this as simply a large state space
-        config["img_input"] = False
+def _transform_env(gymenv):
+    if args.img_input:
+        if args.inception_transformer_checkpoint_path:
+            inception_t = InceptionTransformer(gymenv.spec.observation_space.low.shape, args.inception_transformer_checkpoint_path)
+            transformers = [SimpleNormalizePixelIntensitiesTransformer(), inception_t]
+            # hack, right now inception outputs (1,N) so we want to treat this as simply a large state space
+            config["img_input"] = False
+        else:
+            transformers = [SimpleNormalizePixelIntensitiesTransformer(), ResizeImageTransformer(fraction_of_current_size=.35)]
+        config["transformers"] = transformers
+        transformed_env = ObservationTransformWrapper(gymenv, transformers)
     else:
-        transformers = [SimpleNormalizePixelIntensitiesTransformer(), ResizeImageTransformer(fraction_of_current_size=.35)]
-    config["transformers"] = transformers
-    transformed_env = ObservationTransformWrapper(gymenv, transformers)
-else:
-    reg_obs = True if args.regularize_observation_space else False #is this necessary?
-    transformed_env = normalize(gymenv, normalize_obs=reg_obs)
+        reg_obs = True if args.regularize_observation_space else False #is this necessary?
+        transformed_env = normalize(gymenv, normalize_obs=reg_obs)
 
-if args.add_sensor_occlusion_to_experts and not args.img_input and not args.inception_transformer_checkpoint_path:
-    transformers = [RandomSensorMaskTransformer(gymenv)]
-    config["transformers"] = transformers
+    if args.add_sensor_occlusion_to_experts and not args.img_input and not args.inception_transformer_checkpoint_path:
+        transformers = [RandomSensorMaskTransformer(gymenv)]
+        config["transformers"] = transformers
 
-env = TfEnv(transformed_env)
+    env = TfEnv(transformed_env)
+    return env
+
+env = _transform_env(gymenv)
 
 #TODO: don't do this, should just eat args into config
 config["algorithm"] = args.algorithm
@@ -120,6 +126,16 @@ config["use_mutual_info_penalty_infogan"] = args.use_mutual_info_penalty_infogan
 config["use_cv_penalty"] = args.use_cv_penalty
 config["policy_opt_batch_size"] = args.policy_opt_batch_size
 config["generate_option_graphs"] = args.generate_option_graphs
+
+## Transfer learning params
+if args.second_env:
+    gymenv2 = GymEnv(args.second_env, force_reset=True)
+    gymenv2.env.seed(1)
+    config["second_env"] = _transform_env(gymenv2)
+else:
+    config["second_env"] = None
+
+config["use_prev_options_relearn_mixing_func"] = args.use_prev_options_relearn_mixing_func
 
 if args.record_video_sample_for_rollout:
     config["recording_env"] = GymEnv(args.env, force_reset=True, record_video=True, log_dir="./data/")
@@ -144,7 +160,7 @@ true_rewards = []
 for i in range(args.num_experiments):
     print("Running Experiment %d" % i)
     with tf.variable_scope('sess_%d'%i):
-        true_rewards_exp, actual_rewards_exp = run_experiment(args.expert_rollout_pickle_path,
+        true_rewards_exp, actual_rewards_exp, _ = run_experiment(args.expert_rollout_pickle_path,
                                                               args.trained_policy_pickle_path,
                                                               env,
                                                               arg_to_cost_trainer_map[args.algorithm],

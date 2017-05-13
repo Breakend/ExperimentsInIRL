@@ -2,6 +2,7 @@ from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.baselines.zero_baseline import ZeroBaseline
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 # from baselines.tf_linear_feature_baseline import LinearFeatureBaseline
+from rllab.core.serializable import Serializable
 
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
@@ -153,19 +154,55 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             if "recording_env" in config:
                 novice_rollouts = rollout_policy(policy, config["recording_env"], get_image_observations=False, max_path_length=200)
 
+
         novice_rollouts = algo.obtain_samples(iter_step)
 
         rollout_rewards = [np.sum(x['rewards']) for x in novice_rollouts]
 
         print("Reward stats for final policy: %f +/- %f " % (np.mean(rollout_rewards), np.std(rollout_rewards)))
-
-        algo.shutdown_worker()
-
         # save the novice policy learned
         with open(trained_policy_pickle_path, "wb") as output_file:
             pickle.dump(policy, output_file)
-
         # TODO: also save the reward function?
 
 
-    return true_rewards, actual_rewards
+        second_true_rewards = []
+        second_actual_rewards = []
+        # Do our transfer learning task here:
+        # TODO: move this to a separate script and save the learned weights
+        if config['second_env'] is not None:
+
+            if config['use_prev_options_relearn_mixing_func']:
+                with tf.variable_scope("second_policy"):
+                    second_policy = Serializable.clone(policy) # TODO: start with a fresh policy
+
+                options = cost_trainer.disc.discriminator_options
+                sess.run(tf.global_variables_initializer())
+                cost_trainer.disc._remake_network_from_disc_options(options, stop_gradients = True)
+                sess.run(tf.global_variables_initializer())
+
+                trainer = Trainer(env=config['second_env'],
+                                  sess=sess,cost_approximator=cost_trainer,
+                                  cost_trainer=cost_trainer,
+                                  novice_policy=second_policy,
+                                  novice_policy_optimizer=algo,
+                                  num_frames=num_frames)
+
+                sess.run(tf.global_variables_initializer())
+
+                for iter_step in range(0, iterations):
+                    dump_data = (iter_step == (iterations-1)) and config["generate_option_graphs"]# is last iteration
+                    true_reward, actual_reward = trainer.step(expert_rollouts_tensor=expert_rollouts_tensor, dump_datapoints=dump_data, config=config, expert_horizon=traj_len, number_of_sample_trajectories=number_of_sample_trajectories)
+                    second_true_rewards.append(true_reward)
+                    second_actual_rewards.append(actual_reward)
+
+                    # run a rollout for the video
+                    if "recording_env" in config:
+                        novice_rollouts = rollout_policy(policy, config["recording_env"], get_image_observations=False, max_path_length=200)
+
+        algo.shutdown_worker()
+
+
+
+
+    return true_rewards, actual_rewards, second_true_rewards, second_actual_rewards

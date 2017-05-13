@@ -317,7 +317,9 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         self.config = config
         self.use_l1_loss = False
         self.input_dim = input_dim
-        self.make_network(dim_input=input_dim, dim_output=1, mixtures=mixtures)
+        self.dim_output = 1
+        self.mixtures = mixtures
+        self.make_network(dim_input=input_dim, dim_output=self.dim_output, mixtures=mixtures)
         self.init_tf()
 
     def get_lab_accuracy(self, data, class_labels):
@@ -380,6 +382,48 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
 
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
         return cost, optimizer
+
+    def _remake_network_from_disc_options(self, discriminator_options, stop_gradients = False):
+        """
+        An example a network in tf that has both state and image inputs.
+        Args:
+            dim_input: Dimensionality of input. expecting 2d tuple (num_frames x num_batches)
+            dim_output: Dimensionality of the output.
+            batch_size: Batch size.
+            network_config: dictionary of network structure parameters
+        Returns:
+            A tfMap object that stores inputs, outputs, and scalar loss.
+        """
+        #TODO: a better formulation is to have terminations be a latent variable that somehow sums to 1
+        #TODO: can we combined these mixtures in interesting ways to train each other
+
+        if stop_gradients:
+            for x in discriminator_options:
+                x.discrimination_logits = tf.stop_gradient(x.discrimination_logits)
+
+        with tf.variable_scope("second"):
+            termination_options = ConvStateBasedDiscriminator(self.input_dim, nn_input=self.nn_input, dim_output=self.num_options, config=self.config)
+
+        #TODO: make this configurable
+        self.termination_softmax_logits = tf.nn.softmax(termination_options.discrimination_logits)
+
+        if not self.mixtures:
+            # TODO: then it's options, this flag is gross, change it
+            self.termination_softmax_logits = tf.reshape(tf.one_hot(tf.nn.top_k(self.termination_softmax_logits).indices, tf.shape(self.termination_softmax_logits)[1]), tf.shape(self.termination_softmax_logits))
+
+        #TODO: add gaussian noise and top-k? https://arxiv.org/pdf/1701.06538.pdf
+        self.discriminator_options = discriminator_options
+        self.discrimination_logits = tf.add_n([tf.transpose(tf.multiply(tf.transpose(x.discrimination_logits), self.termination_softmax_logits[:,i])) for i, x in enumerate(discriminator_options)])
+
+        #TODO: what works better, this loss function or each individual loss function
+        # add importance to loss
+        self.termination_importance_values = tf.reduce_sum(self.termination_softmax_logits, axis=0)
+
+        self.loss, self.optimizer = self.get_loss_layer(pred=self.discrimination_logits, target_output=self.class_target)
+
+        label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
+
+        self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
 
     def make_network(self, dim_input, dim_output, mixtures=False):
         """
