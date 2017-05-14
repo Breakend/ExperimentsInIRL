@@ -25,7 +25,7 @@ class Discriminator(object):
         self.config = config
         self.train_step = tf.placeholder(tf.float32, shape=(), name="train_step")
         self.actual_train_step = 0
-        self.decaying_noise = tf.train.exponential_decay(.1, self.train_step, 5, 0.95, staircase=True)
+        self.decaying_noise = tf.train.exponential_decay(.1, self.train_step, 1, 0.96, staircase=True)
 
     def init_tf(self):
         # Hack to only initialize unitialized variables
@@ -60,6 +60,8 @@ class Discriminator(object):
 
     def eval(self, data, softmax=True):
         logits = self.discrimination_logits
+        if config["use_gaussian_noise_on_eval"]:
+             logits = gaussian_noise_layer(logits, self.decaying_noise):
 
         if softmax is True:
             if not self.config["short_run_is_bad"]:
@@ -67,10 +69,7 @@ class Discriminator(object):
             else:
                 logits = tf.nn.sigmoid(logits)
 
-        if self.config["use_gaussian_noise_on_eval"]:
-             logits = gaussian_noise_layer(logits, self.decaying_noise)
-
-        log_prob = self.sess.run([logits], feed_dict={self.train_step : self.actual_train_step, self.nn_input: data})[0]
+        log_prob = self.sess.run([logits], feed_dict={self.nn_input: data})[0]
         return log_prob
 
     @staticmethod

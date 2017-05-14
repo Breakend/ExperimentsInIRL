@@ -58,6 +58,7 @@ parser.add_argument("--generate_option_graphs", action="store_true")
 parser.add_argument("--add_sensor_occlusion_to_experts", action="store_true")
 parser.add_argument("--second_env", default=None)
 parser.add_argument("--use_prev_options_relearn_mixing_func", action="store_true")
+parser.add_argument("--use_gaussian_noise_on_eval", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -126,6 +127,7 @@ config["use_mutual_info_penalty_infogan"] = args.use_mutual_info_penalty_infogan
 config["use_cv_penalty"] = args.use_cv_penalty
 config["policy_opt_batch_size"] = args.policy_opt_batch_size
 config["generate_option_graphs"] = args.generate_option_graphs
+config["use_gaussian_noise_on_eval"] = args.use_gaussian_noise_on_eval
 
 ## Transfer learning params
 if args.second_env:

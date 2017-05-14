@@ -67,9 +67,6 @@ class Trainer(object):
         orig_novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
         novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames,  batch_size=config["policy_opt_batch_size"])
 
-        print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
-        print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
-
         mu, std = norm.fit(np.concatenate([np.array(p['rewards']).reshape(-1) for p in novice_rollouts]))
         dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
 
@@ -98,7 +95,7 @@ class Trainer(object):
                 else:
                     num_epochs = 1
                 ave_loss, ave_acc = self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=num_epochs, num_frames=self.num_frames)
-
+                # import pdb; pdb.set_trace()
                 novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames,  batch_size=config["policy_opt_batch_size"])
                 mu, std = norm.fit(np.concatenate([np.array(p['rewards']).reshape(-1) for p in novice_rollouts]))
                 dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
@@ -145,5 +142,7 @@ class Trainer(object):
             gc.collect()
             self.gc_time = time.time()
 
+        print("True Reward: %f" % np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]))
+        print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
         print("Training Iteration (Full Novice Rollouts): %d" % self.iteration)
         return np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]), np.mean([np.sum(p['rewards']) for p in novice_rollouts])

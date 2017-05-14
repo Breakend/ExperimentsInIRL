@@ -24,3 +24,7 @@ def initialize_uninitialized(sess):
     print([str(i.name) for i in not_initialized_vars]) # only for testing
     if len(not_initialized_vars):
         sess.run(tf.variables_initializer(not_initialized_vars))
+
+def gaussian_noise_layer(input_layer, std):
+    noise = tf.random_normal(shape=tf.shape(input_layer), mean=0, stddev=std, dtype=tf.float32)
+    return input_layer + noise

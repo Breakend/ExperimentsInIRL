@@ -176,6 +176,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
             if config['use_prev_options_relearn_mixing_func']:
                 with tf.variable_scope("second_policy"):
+                    #TODO: remove gross copypasta
                 #     second_policy = Serializable.clone(policy) # TODO: start with a fresh policy
                     if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
                         second_policy = CategoricalConvPolicy(
@@ -234,8 +235,8 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
                 algo.start_worker()
 
                 initialize_uninitialized(sess)
-
                 for iter_step in range(0, iterations):
+                    # import pdb; pdb.set_trace()
                     dump_data = (iter_step == (iterations-1)) and config["generate_option_graphs"]# is last iteration
                     true_reward, actual_reward = trainer.step(expert_rollouts_tensor=expert_rollouts_tensor, dump_datapoints=dump_data, config=config, expert_horizon=traj_len, number_of_sample_trajectories=number_of_sample_trajectories)
                     second_true_rewards.append(true_reward)
@@ -243,8 +244,11 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
 
                     # run a rollout for the video
                     if "recording_env" in config:
-                        novice_rollouts = rollout_policy(second_policy, config["recording_env"], get_image_observations=False, max_path_length=200)
+                        novice_rollouts = rollout_policy(second_policy, config["recording_env"], get_image_observations=False, max_path_length=traj_len)
 
+                novice_rollouts = algo.obtain_samples(iter_step)
+
+                rollout_rewards = [np.sum(x['rewards']) for x in novice_rollouts]
                 print("Reward stats for final policy: %f +/- %f " % (np.mean(rollout_rewards), np.std(rollout_rewards)))
                 # save the novice policy learned
                 with open(trained_policy_pickle_path, "wb") as output_file:
