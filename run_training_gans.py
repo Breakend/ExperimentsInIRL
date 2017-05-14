@@ -25,11 +25,13 @@ from apprenticeship.apprenticeship_trainer import ApprenticeshipCostLearningTrai
 from envs.observation_transform_wrapper import ObservationTransformWrapper
 from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer, RandomSensorMaskTransformer
 from envs.tf_transformers import InceptionTransformer
+from envs.transfer.register_envs import register_custom_envs
 
 from experiment import *
 import tensorflow as tf
 import pickle
 import argparse
+
 parser = argparse.ArgumentParser()
 parser.add_argument("expert_rollout_pickle_path")
 parser.add_argument("trained_policy_pickle_path")
@@ -134,6 +136,7 @@ config["num_extra_options_on_transfer"] = args.num_extra_options_on_transfer
 
 ## Transfer learning params
 if args.second_env:
+    register_custom_envs()
     gymenv2 = GymEnv(args.second_env, force_reset=True)
     gymenv2.env.seed(1)
     config["second_env"] = _transform_env(gymenv2)
