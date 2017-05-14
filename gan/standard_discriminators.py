@@ -393,7 +393,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
         return cost, optimizer
 
-    def _remake_network_from_disc_options(self, discriminator_options, stop_gradients = False):
+    def _remake_network_from_disc_options(self, discriminator_options, stop_gradients = False, num_extra_options = 0):
         """
         An example a network in tf that has both state and image inputs.
         Args:
@@ -411,6 +411,13 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         if stop_gradients:
             for x in discriminator_options:
                 x.discrimination_logits = tf.stop_gradient(x.discrimination_logits)
+
+        if num_extra_options > 0:
+            self.num_options += num_extra_options
+            for i in range(num_extra_options):
+                discriminator_options.append(ConvStateBasedDiscriminator(self.input_dim, nn_input=self.nn_input, dim_output=self.dim_output, scope="extraoption%d"%i, config=self.config))
+
+        self.discriminator_options = discriminator_options
 
         # import pdb; pdb.set_trace()
         with tf.variable_scope("second"):
@@ -443,7 +450,6 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             regularization_penalty = 0.0
 
         #TODO: add gaussian noise and top-k? https://arxiv.org/pdf/1701.06538.pdf
-        self.discriminator_options = discriminator_options
         # import pdb; pdb.set_trace()
         combined_options = tf.concat([x.discrimination_logits for x in discriminator_options], axis=1)
         #combined_options should have shape (batch_size x num_options )

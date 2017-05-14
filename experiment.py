@@ -223,7 +223,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
                     )
 
                 options = cost_trainer.disc.discriminator_options
-                cost_trainer.disc._remake_network_from_disc_options(options, stop_gradients = True)
+                cost_trainer.disc._remake_network_from_disc_options(options, stop_gradients = True, num_extra_options=config["num_extra_options_on_transfer"])
 
                 trainer = Trainer(env=config['second_env'],
                                   sess=sess,

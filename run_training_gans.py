@@ -47,7 +47,7 @@ parser.add_argument("--max_path_length", default=-1, type=int)
 parser.add_argument("--record_video_sample_for_rollout", action="store_true")
 parser.add_argument("--regularize_observation_space", action="store_true")
 parser.add_argument("--oversample_expert", action="store_true")
-parser.add_argument("--entropy_penalty", default=.001, type=float)
+parser.add_argument("--entropy_penalty", default=0.0, type=float)
 parser.add_argument("--use_cv_penalty", action="store_true")
 parser.add_argument("--use_mutual_info_penalty_nn_paper", action="store_true")
 parser.add_argument("--use_mutual_info_penalty_infogan", action="store_true")
@@ -59,6 +59,8 @@ parser.add_argument("--add_sensor_occlusion_to_experts", action="store_true")
 parser.add_argument("--second_env", default=None)
 parser.add_argument("--use_prev_options_relearn_mixing_func", action="store_true")
 parser.add_argument("--use_gaussian_noise_on_eval", action="store_true")
+parser.add_argument("--num_extra_options_on_transfer", default=0, type=int)
+
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -128,6 +130,7 @@ config["use_cv_penalty"] = args.use_cv_penalty
 config["policy_opt_batch_size"] = args.policy_opt_batch_size
 config["generate_option_graphs"] = args.generate_option_graphs
 config["use_gaussian_noise_on_eval"] = args.use_gaussian_noise_on_eval
+config["num_extra_options_on_transfer"] = args.num_extra_options_on_transfer
 
 ## Transfer learning params
 if args.second_env:
