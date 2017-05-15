@@ -208,6 +208,7 @@ for i in range(args.num_experiments):
     fig.savefig('true_reward_option_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
     plt.clf()
 
+    # import pdb; pdb.set_trace()
     avg_true_rewards = np.mean(transfer_learning_true_rewards, axis=0)
     true_rewards_variance = np.var(transfer_learning_true_rewards, axis=0)
     true_rewards_std = np.sqrt(true_rewards_variance)
