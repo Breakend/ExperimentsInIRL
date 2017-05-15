@@ -4,10 +4,10 @@ from gym.envs.mujoco import mujoco_env
 import os.path as osp
 
 class ModifiedHopperEnv(mujoco_env.MujocoEnv, utils.EzPickle):
-    def __init__(self):
+    def __init__(self, **kwargs):
         # import pdb; pdb.set_trace()
         abs_path = osp.abspath(osp.join(osp.dirname(__file__), '.'))
-        mujoco_env.MujocoEnv.__init__(self, abs_path + '/mujoco/hopper1.xml', 4)
+        mujoco_env.MujocoEnv.__init__(self, abs_path + "/mujoco/" + kwargs["xml_name"], 4)
         utils.EzPickle.__init__(self)
 
     def _step(self, a):

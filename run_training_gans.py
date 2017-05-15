@@ -62,6 +62,9 @@ parser.add_argument("--second_env", default=None)
 parser.add_argument("--use_prev_options_relearn_mixing_func", action="store_true")
 parser.add_argument("--use_gaussian_noise_on_eval", action="store_true")
 parser.add_argument("--num_extra_options_on_transfer", default=0, type=int)
+parser.add_argument("--reset_second_policy", action="store_true")
+parser.add_argument("--retrain_options", action="store_true")
+parser.add_argument("--stop_disc_training_on_second_run", action="store_true")
 
 args = parser.parse_args()
 
@@ -133,6 +136,9 @@ config["policy_opt_batch_size"] = args.policy_opt_batch_size
 config["generate_option_graphs"] = args.generate_option_graphs
 config["use_gaussian_noise_on_eval"] = args.use_gaussian_noise_on_eval
 config["num_extra_options_on_transfer"] = args.num_extra_options_on_transfer
+config["reset_second_policy"] = args.reset_second_policy
+config["retrain_options"] = args.retrain_options
+config["stop_disc_training_on_second_run"] = args.stop_disc_training_on_second_run
 
 ## Transfer learning params
 if args.second_env:
@@ -162,13 +168,14 @@ if args.env not in bad_short_runs_mapping.keys():
 config['short_run_is_bad'] = bad_short_runs_mapping[args.env]
 
 # config["replay_old_samples"] = args.replay_old_samples
+# TODO: experience replay
 
-# average results over 10 experiments
 true_rewards = []
+transfer_learning_true_rewards = []
 for i in range(args.num_experiments):
     print("Running Experiment %d" % i)
     with tf.variable_scope('sess_%d'%i):
-        true_rewards_exp, actual_rewards_exp, _, _ = run_experiment(args.expert_rollout_pickle_path,
+        true_rewards_exp, actual_rewards_exp, transfer_learning_true_rewards_exp, transfer_learning_disc_rewards_exp = run_experiment(args.expert_rollout_pickle_path,
                                                               args.trained_policy_pickle_path,
                                                               env,
                                                               arg_to_cost_trainer_map[args.algorithm],
@@ -177,6 +184,7 @@ for i in range(args.num_experiments):
                                                               config=config,
                                                               traj_len=max_path_length)
         true_rewards.append(true_rewards_exp)
+        transfer_learning_true_rewards.append(transfer_learning_true_rewards_exp)
 
     avg_true_rewards = np.mean(true_rewards, axis=0)
     true_rewards_variance = np.var(true_rewards, axis=0)
@@ -186,8 +194,6 @@ for i in range(args.num_experiments):
 
     with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag), "wb") as output_file:
         pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
-
-    #TODO: add variance
 
     fig = plt.figure()
     plt.plot(avg_true_rewards)
@@ -200,4 +206,23 @@ for i in range(args.num_experiments):
     # plt.legend()
     fig.suptitle('True Reward over Training Iterations')
     fig.savefig('true_reward_option_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
+    plt.clf()
+
+    avg_true_rewards = np.mean(transfer_learning_true_rewards, axis=0)
+    true_rewards_variance = np.var(transfer_learning_true_rewards, axis=0)
+    true_rewards_std = np.sqrt(true_rewards_variance)
+    with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_transferdata.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag), "wb") as output_file:
+        pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
+
+    fig = plt.figure()
+    plt.plot(avg_true_rewards)
+    plt.xlabel('Training iterations', fontsize=18)
+    plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
+        alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
+        linewidth=4, linestyle='dashdot', antialiased=True)
+
+    plt.ylabel('Average True Reward', fontsize=16)
+    # plt.legend()
+    fig.suptitle('True Reward over Training Iterations')
+    fig.savefig('true_reward_option_transfer_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
     plt.clf()

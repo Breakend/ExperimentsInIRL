@@ -12,7 +12,7 @@ import time
 
 class Trainer(object):
 
-    def __init__(self, sess, env, cost_approximator, cost_trainer, novice_policy, novice_policy_optimizer, num_frames=4, concat_timesteps=True):
+    def __init__(self, sess, env, cost_approximator, cost_trainer, novice_policy, novice_policy_optimizer, num_frames=4, concat_timesteps=True, train_disc=True):
         """
         sess : tensorflow session
         cost_approximator : the NN or whatever cost function that can take in your observations/states and then give you your reward
@@ -42,6 +42,7 @@ class Trainer(object):
         self.gc_time_threshold = 60 # seconds between garbage collection
         # as in traditional GANs, we add failure noise
         self.noise_fail_policy = UniformControlPolicy(env.spec)
+        self.train_disc = train_disc
         self.zero_baseline = ZeroBaseline(env_spec=env.spec)
         self.rand_algo = NOP(
             env=env,
@@ -71,7 +72,7 @@ class Trainer(object):
         dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
 
         # if we're using a cost trainer train it?
-        if self.cost_trainer and self.should_train_cost:
+        if self.cost_trainer and self.should_train_cost and self.train_disc:
             random_rollouts = self.rand_algo.sampler.obtain_samples(itr = self.iteration)
 
             train_novice_data = novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]

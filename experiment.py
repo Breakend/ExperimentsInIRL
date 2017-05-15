@@ -177,31 +177,33 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             if config['use_prev_options_relearn_mixing_func']:
                 with tf.variable_scope("second_policy"):
                     #TODO: remove gross copypasta
-                #     second_policy = Serializable.clone(policy) # TODO: start with a fresh policy
-                    if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
-                        second_policy = CategoricalConvPolicy(
-                            name="policy",
-                            env_spec=config["second_env"].spec,
-                            conv_filters=[32, 64, 64],
-                            conv_filter_sizes=[3, 3, 3],
-                            conv_strides=[1, 1, 1],
-                            conv_pads=['SAME', 'SAME', 'SAME'],
-                            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-                            hidden_sizes=[200, 200]
-                        )
-                    elif type(env.spec.action_space) == Discrete:
-                        second_policy = CategoricalMLPPolicy(
-                            name="policy",
-                            env_spec=config["second_env"].spec,
-                            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-                            hidden_sizes=(400, 300)
-                        )
+                    if not config["reset_second_policy"]:
+                        second_policy = Serializable.clone(policy) # TODO: start with a fresh policy
                     else:
-                        second_policy = GaussianMLPPolicy(
-                            name="policy",
-                            env_spec=config["second_env"].spec,
-                            hidden_sizes=(100, 50, 25)
-                        )
+                        if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
+                            second_policy = CategoricalConvPolicy(
+                                name="policy",
+                                env_spec=config["second_env"].spec,
+                                conv_filters=[32, 64, 64],
+                                conv_filter_sizes=[3, 3, 3],
+                                conv_strides=[1, 1, 1],
+                                conv_pads=['SAME', 'SAME', 'SAME'],
+                                # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                                hidden_sizes=[200, 200]
+                            )
+                        elif type(env.spec.action_space) == Discrete:
+                            second_policy = CategoricalMLPPolicy(
+                                name="policy",
+                                env_spec=config["second_env"].spec,
+                                # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                                hidden_sizes=(400, 300)
+                            )
+                        else:
+                            second_policy = GaussianMLPPolicy(
+                                name="policy",
+                                env_spec=config["second_env"].spec,
+                                hidden_sizes=(100, 50, 25)
+                            )
 
                     if config["img_input"]:
                         # TODO: right now the linear feature baseline is too computationally expensive to actually use
@@ -222,8 +224,12 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
                         optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5), max_backtracks=40)
                     )
 
-                options = cost_trainer.disc.discriminator_options
-                cost_trainer.disc._remake_network_from_disc_options(options, stop_gradients = True, num_extra_options=config["num_extra_options_on_transfer"])
+                if not config["stop_disc_training_on_second_run"]:
+                    # If we're not retraining the discriminator at all in the transfer learning step,
+                    # just keep the old network
+                    options = cost_trainer.disc.discriminator_options
+
+                    cost_trainer.disc._remake_network_from_disc_options(options, stop_gradients = (not config["retrain_options"]), num_extra_options=config["num_extra_options_on_transfer"])
 
                 trainer = Trainer(env=config['second_env'],
                                   sess=sess,
@@ -231,7 +237,8 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
                                   cost_trainer=cost_trainer,
                                   novice_policy=second_policy,
                                   novice_policy_optimizer=algo,
-                                  num_frames=num_frames)
+                                  num_frames=num_frames,
+                                  train_disc= (not config["stop_disc_training_on_second_run"]))
                 algo.start_worker()
 
                 initialize_uninitialized(sess)
