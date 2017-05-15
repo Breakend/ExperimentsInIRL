@@ -65,6 +65,8 @@ parser.add_argument("--num_extra_options_on_transfer", default=0, type=int)
 parser.add_argument("--reset_second_policy", action="store_true")
 parser.add_argument("--retrain_options", action="store_true")
 parser.add_argument("--stop_disc_training_on_second_run", action="store_true")
+parser.add_argument("--add_decaying_reward_bonus", action="store_true")
+parser.add_argument("--output_enhanced_stats", action="store_true")
 
 args = parser.parse_args()
 
@@ -139,6 +141,8 @@ config["num_extra_options_on_transfer"] = args.num_extra_options_on_transfer
 config["reset_second_policy"] = args.reset_second_policy
 config["retrain_options"] = args.retrain_options
 config["stop_disc_training_on_second_run"] = args.stop_disc_training_on_second_run
+config["add_decaying_reward_bonus"] = args.add_decaying_reward_bonus
+config["output_enhanced_stats"] = args.output_enhanced_stats
 
 ## Transfer learning params
 if args.second_env:

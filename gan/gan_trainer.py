@@ -5,7 +5,8 @@ import numpy as np
 class GANCostTrainer(object):
 
     def __init__(self, input_dims, config=None):
-        # input_dims is the size of the feature vectors
+        # input_dims is the size of the feature vector
+        self.config = config
         self.disc = ConvStateBasedDiscriminator(input_dims, config=config)
 
     def get_reward(self, samples):
@@ -29,6 +30,9 @@ class GANCostTrainer(object):
         for iter_step in range(0, epochs):
             batch_losses = []
             lab_acc = []
+            lab_recall = []
+            lab_precision = []
+            lab_error = []
             # import pdb; pdb.set_trace()
             for batch_step in range(0, data.shape[0], batch_size):
 
@@ -39,6 +43,17 @@ class GANCostTrainer(object):
 
                 batch_losses.append(self.disc.train(data_batch, classes_batch))
                 lab_acc.append(self.disc.get_lab_accuracy(data_batch, classes_batch))
+
+                if self.config["output_enhanced_stats"]:
+                    lab_error.append(self.disc.get_mse(data_batch, classes_batch))
+                    lab_precision.append(self.disc.get_lab_precision(data_batch, classes_batch))
+                    lab_recall.append(self.disc.get_lab_recall(data_batch, classes_batch))
+            print('-----------')
             print('loss is ' + str(np.mean(np.array(batch_losses))))
             print('acc is ' + str(np.mean(np.array(lab_acc))))
+            if self.config["output_enhanced_stats"]:
+                print('precision is ' + str(np.mean(np.array(lab_precision))))
+                print('recall is ' + str(np.mean(np.array(lab_recall))))
+                print('error is ' + str(np.mean(np.array(lab_error))))
+            print('-----------')
         return np.mean(np.array(batch_losses)), np.mean(np.array(lab_acc))

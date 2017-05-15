@@ -26,6 +26,7 @@ class Discriminator(object):
         self.train_step = tf.placeholder(tf.float32, shape=(), name="train_step")
         self.actual_train_step = 0
         self.decaying_noise = tf.train.exponential_decay(.1, self.train_step, 5, 0.95, staircase=True)
+        self.decaying_reward_bonus = tf.train.exponential_decay(1.0, self.train_step, 5, 0.95, staircase=True)
 
     def init_tf(self):
         # Hack to only initialize unitialized variables
@@ -63,9 +64,13 @@ class Discriminator(object):
 
         if softmax is True:
             if not self.config["short_run_is_bad"]:
+                if self.config["add_decaying_reward_bonus"]:
+                    raise Exception("Decaying bonus for short_run_is_bad=False is not implemented yet")
                 logits = tf.nn.sigmoid(logits) - 1.0
             else:
                 logits = tf.nn.sigmoid(logits)
+                if self.config["add_decaying_reward_bonus"]:
+                    logits += self.decaying_reward_bonus * (tf.square(1.0 + logits))
 
         if self.config["use_gaussian_noise_on_eval"]:
              logits = gaussian_noise_layer(logits, self.decaying_noise)
@@ -156,6 +161,19 @@ class ConvStateBasedDiscriminator(Discriminator):
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
+    def get_mse(self, data, class_labels):
+        return self.sess.run([self.mse], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+    def get_lab_precision(self, data, class_labels):
+        return self.sess.run([self.label_precision], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+    def get_lab_recall(self, data, class_labels):
+        return self.sess.run([self.label_recall], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+
     def make_network_image(self, dim_input, dim_output, nn_input=None, target=None):
         """
         An example a network in tf that has both state and image inputs.
@@ -244,8 +262,17 @@ class ConvStateBasedDiscriminator(Discriminator):
         self.optimizer = optimizer
         self.loss = loss
         label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
-
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+        self.mse = tf.reduce_mean(tf.nn.l2_loss(tf.nn.sigmoid(self.discrimination_logits) - self.class_target))
+        ones = tf.ones_like(self.class_target)
+
+        true_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits)) * tf.round(self.class_target)
+        predicted_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits))
+
+        false_negatives = tf.logical_not(tf.logical_xor(tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), ones), tf.equal(tf.round(self.class_target), ones)))
+
+        self.label_precision = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / tf.reduce_sum(tf.cast(predicted_positives, tf.float32))
+        self.label_recall = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / (tf.reduce_sum(tf.cast(true_positives, tf.float32)) + tf.reduce_sum(tf.cast(false_negatives, tf.float32)))
 
     def make_network(self, dim_input, dim_output, nn_input=None, target=None):
         """
@@ -291,9 +318,21 @@ class ConvStateBasedDiscriminator(Discriminator):
         self.discrimination_logits = fc_output
         self.optimizer = optimizer
         self.loss = loss
+
         label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
 
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+        self.mse = tf.reduce_mean(tf.nn.l2_loss(tf.nn.sigmoid(self.discrimination_logits) - self.class_target))
+
+        ones = tf.ones_like(self.class_target)
+
+        true_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits)) * tf.round(self.class_target)
+        predicted_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits))
+
+        false_negatives = tf.logical_not(tf.logical_xor(tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), ones), tf.equal(tf.round(self.class_target), ones)))
+
+        self.label_precision = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / tf.reduce_sum(tf.cast(predicted_positives, tf.float32))
+        self.label_recall = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / (tf.reduce_sum(tf.cast(true_positives, tf.float32)) + tf.reduce_sum(tf.cast(false_negatives, tf.float32)))
 
     @staticmethod
     def get_input_layer(num_frames, state_size, dim_output=1):
@@ -334,6 +373,18 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
 
     def get_lab_accuracy(self, data, class_labels):
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+    def get_mse(self, data, class_labels):
+        return self.sess.run([self.mse], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+    def get_lab_precision(self, data, class_labels):
+        return self.sess.run([self.label_precision], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
+
+    def get_lab_recall(self, data, class_labels):
+        return self.sess.run([self.label_recall], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def get_loss_layer(self, pred, target_output):
@@ -429,7 +480,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         if not self.mixtures:
             # TODO: then it's options, this flag is gross, change it
             # import pdb; pdb.set_trace()
-            k = 2
+            k = 1
             indices = tf.nn.top_k(self.termination_softmax_logits, k=k).indices
             vec = tf.zeros( tf.shape(self.termination_softmax_logits))
             for k in range(k):
@@ -467,6 +518,18 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
 
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+
+        self.mse = tf.reduce_mean(tf.nn.l2_loss(tf.nn.sigmoid(self.discrimination_logits) - self.class_target))
+
+        ones = tf.ones_like(self.class_target)
+
+        true_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits)) * tf.round(self.class_target)
+        predicted_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits))
+
+        false_negatives = tf.logical_not(tf.logical_xor(tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), ones), tf.equal(tf.round(self.class_target), ones)))
+
+        self.label_precision = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / tf.reduce_sum(tf.cast(predicted_positives, tf.float32))
+        self.label_recall = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / (tf.reduce_sum(tf.cast(true_positives, tf.float32)) + tf.reduce_sum(tf.cast(false_negatives, tf.float32)))
 
         # Why do this? apply these termination functions as termination functions for policy options?
         # use TRPO to train N different policies with the termination function taking into account the states
@@ -555,6 +618,18 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         label_accuracy = tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), tf.round(self.class_target))
 
         self.label_accuracy = tf.reduce_mean(tf.cast(label_accuracy, tf.float32))
+        self.mse = tf.reduce_mean(tf.nn.l2_loss(tf.nn.sigmoid(self.discrimination_logits) - self.class_target))
+
+        ones = tf.ones_like(self.class_target)
+
+        true_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits)) * tf.round(self.class_target)
+        predicted_positives = tf.round(tf.nn.sigmoid(self.discrimination_logits))
+
+        false_negatives = tf.logical_not(tf.logical_xor(tf.equal(tf.round(tf.nn.sigmoid(self.discrimination_logits)), ones), tf.equal(tf.round(self.class_target), ones)))
+
+        self.label_precision = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / tf.reduce_sum(tf.cast(predicted_positives, tf.float32))
+        self.label_recall = tf.reduce_sum(tf.cast(true_positives, tf.float32)) / (tf.reduce_sum(tf.cast(true_positives, tf.float32)) + tf.reduce_sum(tf.cast(false_negatives, tf.float32)))
+
 
         # Why do this? apply these termination functions as termination functions for policy options?
         # use TRPO to train N different policies with the termination function taking into account the states

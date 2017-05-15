@@ -13,6 +13,7 @@ from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import FiniteDiffe
 from sampling_utils import sample_policy_trajectories
 import pickle
 import tensorflow as tf
+from envs.transfer.register_envs import *
 import numpy as np
 import argparse
 
@@ -34,6 +35,9 @@ args = parser.parse_args()
 
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
+
+register_custom_envs()
+
 gymenv = GymEnv(args.env, force_reset=True)
 # gymenv.env.seed(124)
 env = TfEnv(normalize(gymenv, normalize_obs=True))
@@ -60,8 +64,8 @@ algo = TRPO(
     env=env,
     policy=policy,
     baseline=baseline,
-    batch_size=5000, # Mujoco tasks need 20000-50000
-    max_path_length=200, # And 500
+    batch_size=50000, # Mujoco tasks need 20000-50000
+    max_path_length=env.horizon, # And 500
     n_itr=iters,
     discount=0.99,
     step_size=0.01,

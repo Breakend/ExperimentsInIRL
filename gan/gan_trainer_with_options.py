@@ -9,6 +9,7 @@ class GANCostTrainerWithRewardOptions(object):
         TODO: this is a hack for now, but right now just treat the mixtures param as a flag and have a super class set it for the mixtures model
         """
         # input_dims is the size of the feature vectors
+        self.config = config
         self.disc = ConvStateBasedDiscriminatorWithOptions(input_dims, mixtures=mixtures, config=config)
 
     def get_reward(self, samples):
@@ -29,6 +30,9 @@ class GANCostTrainerWithRewardOptions(object):
         for iter_step in range(0, epochs):
             batch_losses = []
             lab_acc = []
+            lab_recall = []
+            lab_precision = []
+            lab_error = []
             # import pdb; pdb.set_trace()
             for batch_step in range(0, data.shape[0], batch_size):
 
@@ -39,8 +43,19 @@ class GANCostTrainerWithRewardOptions(object):
 
                 batch_losses.append(self.disc.train(data_batch, classes_batch))
                 lab_acc.append(self.disc.get_lab_accuracy(data_batch, classes_batch))
+                
+                if self.config["output_enhanced_stats"]:
+                    lab_error.append(self.disc.get_mse(data_batch, classes_batch))
+                    lab_precision.append(self.disc.get_lab_precision(data_batch, classes_batch))
+                    lab_recall.append(self.disc.get_lab_recall(data_batch, classes_batch))
+            print('-----------')
             print('loss is ' + str(np.mean(np.array(batch_losses))))
             print('acc is ' + str(np.mean(np.array(lab_acc))))
+            if self.config["output_enhanced_stats"]:
+                print('precision is ' + str(np.mean(np.array(lab_precision))))
+                print('recall is ' + str(np.mean(np.array(lab_recall))))
+                print('error is ' + str(np.mean(np.array(lab_error))))
+            print('-----------')
         return np.mean(np.array(batch_losses)), np.mean(np.array(lab_acc))
 
 
