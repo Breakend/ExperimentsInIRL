@@ -66,7 +66,7 @@ class Trainer(object):
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
         # for optimizing the trajectories
         orig_novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
-        print("True Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
+        print("True Reward: %f" % np.mean([np.sum(p['rewards']) for p in orig_novice_rollouts]))
 
         novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames,  batch_size=config["policy_opt_batch_size"])
 
