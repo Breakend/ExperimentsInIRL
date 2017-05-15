@@ -56,7 +56,6 @@ class Discriminator(object):
                                                                     #  self.pos_weighting: self.compute_pos_weight(targets_batch),
                                                                      self.nn_input: data_batch,
                                                                      self.class_target: targets_batch})[1]
-        self.actual_train_step += 1
         return cost
 
     def eval(self, data, softmax=True):

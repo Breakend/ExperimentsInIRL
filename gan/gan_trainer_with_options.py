@@ -43,7 +43,7 @@ class GANCostTrainerWithRewardOptions(object):
 
                 batch_losses.append(self.disc.train(data_batch, classes_batch))
                 lab_acc.append(self.disc.get_lab_accuracy(data_batch, classes_batch))
-                
+
                 if self.config["output_enhanced_stats"]:
                     lab_error.append(self.disc.get_mse(data_batch, classes_batch))
                     lab_precision.append(self.disc.get_lab_precision(data_batch, classes_batch))
@@ -56,6 +56,7 @@ class GANCostTrainerWithRewardOptions(object):
                 print('recall is ' + str(np.mean(np.array(lab_recall))))
                 print('error is ' + str(np.mean(np.array(lab_error))))
             print('-----------')
+        self.disc.actual_train_step += 1
         return np.mean(np.array(batch_losses)), np.mean(np.array(lab_acc))
 
 

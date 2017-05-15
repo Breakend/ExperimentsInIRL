@@ -56,4 +56,5 @@ class GANCostTrainer(object):
                 print('recall is ' + str(np.mean(np.array(lab_recall))))
                 print('error is ' + str(np.mean(np.array(lab_error))))
             print('-----------')
+        self.disc.actual_train_step += 1
         return np.mean(np.array(batch_losses)), np.mean(np.array(lab_acc))
