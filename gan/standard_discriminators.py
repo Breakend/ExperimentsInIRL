@@ -573,7 +573,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
         if not mixtures:
             # TODO: then it's options, this flag is gross, change it
             # import pdb; pdb.set_trace()
-            k = 2
+            k = 1
             indices = tf.nn.top_k(self.termination_softmax_logits, k=k).indices
             vec = tf.zeros( tf.shape(self.termination_softmax_logits))
             for k in range(k):
