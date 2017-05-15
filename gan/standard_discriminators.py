@@ -69,7 +69,7 @@ class Discriminator(object):
             else:
                 logits = tf.nn.sigmoid(logits)
                 if self.config["add_decaying_reward_bonus"]:
-                    logits += self.decaying_reward_bonus * (tf.square(1.0 + logits))
+                    logits += self.decaying_reward_bonus * (tf.pow(10, logits))
 
         if self.config["use_gaussian_noise_on_eval"]:
              logits = gaussian_noise_layer(logits, self.decaying_noise)
