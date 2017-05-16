@@ -27,7 +27,7 @@ class Discriminator(object):
         self.actual_train_step = 0
         self.decaying_noise = tf.train.exponential_decay(.1, self.train_step, 5, 0.95, staircase=True)
         self.decaying_reward_bonus = tf.train.exponential_decay(0.05, self.train_step, 5, 0.95, staircase=True)
-        self.decaying_dropout = tf.train.exponential_decay(0.4, self.train_step, 5, 0.9, staircase=True)
+        self.decaying_dropout = tf.train.exponential_decay(0.6, self.train_step, 5, 0.9, staircase=True)
 
     def init_tf(self):
         # Hack to only initialize unitialized variables
@@ -439,7 +439,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
                 cond_ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[j].discrimination_logits)), 1))
                 ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[i].discrimination_logits)), 1))
                 mi += (cond_ent + ent)
-                
+
             mi /= float(len(combos))
             importance_weight = self.config["importance_weights"]
             cost += (importance_weight)*tf.nn.l2_loss(mi)

@@ -142,15 +142,11 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
     o = env.reset()
     path_length = 0
 
-    while path_length < max_path_length:
+    while path_length <= max_path_length:
         a, agent_info = agent.get_action(o)
         next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
-        if d:
-            rewards.append(0.0)
-            # break
-        else:
-            rewards.append(r)
+
         actions.append(env.action_space.flatten(a))
         agent_infos.append(agent_info)
         env_infos.append(env_info)
@@ -164,7 +160,11 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
                 print("Problem! Couldn't get pixels! Dropping into debug shell.")
                 import pdb; pdb.set_trace()
             im_observations.append(pixel_array)
-
+        if d:
+            rewards.append(r)
+            break
+        else:
+            rewards.append(r)
     # if animated:
     # env.render(close=True)
 
