@@ -79,8 +79,10 @@ class Trainer(object):
         start_time = time.time()
         for itr in range(n_itr):
             itr_start_time = time.time()
+            itr = self.iteration
+            self.iteration += 1
+
             with logger.prefix('itr #%d | ' % self.iteration):
-                self.iteration += 1
                 logger.log("Obtaining samples...")
                 paths = algo.obtain_samples(itr)
                 logger.log("Processing samples...")
@@ -154,7 +156,7 @@ class Trainer(object):
                                     sess=self.sess,
                                     num_rollouts_to_store=5,
                                     # n_itr=300 if self.should_do_exploration else 10)
-                                    n_itr=10)
+                                    n_itr=20)
             self.should_do_policy_step = False
 
             # Extract observations to a tensor
@@ -181,7 +183,7 @@ class Trainer(object):
         print("*******************************************")
         print("True Reward: %f" % ave_true_reward)
         print("*******************************************")
-        if np.abs(ave_true_reward - self.cache_reward) < 20.0:
+        if ave_true_reward >= self.cache_reward*.85:
             # if our average reward is in some threshold of the max TRPO reward, let TRPO go again
             self.should_do_policy_step = True
 
