@@ -287,13 +287,13 @@ class ConvStateBasedDiscriminator(Discriminator):
             A tfMap object that stores inputs, outputs, and scalar loss.
         """
         n_mlp_layers = 2
-        layer_size = 128
+        layer_size = 50
         dim_hidden = (n_mlp_layers - 1) * [layer_size]
         dim_hidden.append(dim_output)
-        pool_size = 2
+        # pool_size = 2
         filter_size = 3
 
-        num_filters = [5, 5]
+        num_filters = [3, 3]
 
         if nn_input is None:
             #TODO: don't do this grossness, just create variables the normal way
@@ -301,16 +301,17 @@ class ConvStateBasedDiscriminator(Discriminator):
 
         if target is None:
             _, target = self.get_input_layer(dim_input[0], dim_input[1], dim_output)
+        #
+        # conv_out_size = int(dim_input[0] * num_filters[1])
+        #
+        # conv_layer_0 = tf.layers.conv1d(nn_input, filters=3, kernel_size=3, strides=1, padding='same')
+        #
+        # conv_layer_1 = tf.layers.conv1d(conv_layer_0, filters=3, kernel_size=3, strides=1, padding='same')
+        #
+        # conv_out_flat = tf.reshape(conv_layer_1, [-1, conv_out_size])
 
-        conv_out_size = int(dim_input[0] * num_filters[1])
-
-        conv_layer_0 = tf.layers.conv1d(nn_input, filters=5, kernel_size=3, strides=1, padding='same')
-
-        conv_layer_1 = tf.layers.conv1d(conv_layer_0, filters=5, kernel_size=3, strides=1, padding='same')
-
-        conv_out_flat = tf.reshape(conv_layer_1, [-1, conv_out_size])
-
-        fc_output = self.get_mlp_layers(conv_out_flat, n_mlp_layers, dim_hidden, dropout=None)
+        nn_input = tf.reshape(nn_input, [-1, dim_input[0]*dim_input[1]])
+        fc_output = self.get_mlp_layers(nn_input, n_mlp_layers, dim_hidden, dropout=None)
 
         loss, optimizer = self.get_loss_layer(pred=fc_output, target_output=target)
 
@@ -439,7 +440,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
                 cond_ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[j].discrimination_logits)), 1))
                 ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[i].discrimination_logits)), 1))
                 mi += (cond_ent + ent)
-                
+
             mi /= float(len(combos))
             importance_weight = self.config["importance_weights"]
             cost += (importance_weight)*tf.nn.l2_loss(mi)
