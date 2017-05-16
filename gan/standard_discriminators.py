@@ -26,7 +26,8 @@ class Discriminator(object):
         self.train_step = tf.placeholder(tf.float32, shape=(), name="train_step")
         self.actual_train_step = 0
         self.decaying_noise = tf.train.exponential_decay(.1, self.train_step, 5, 0.95, staircase=True)
-        self.decaying_reward_bonus = tf.train.exponential_decay(1.0, self.train_step, 5, 0.95, staircase=True)
+        self.decaying_reward_bonus = tf.train.exponential_decay(0.05, self.train_step, 5, 0.95, staircase=True)
+        self.decaying_dropout = tf.train.exponential_decay(0.4, self.train_step, 5, 0.9, staircase=True)
 
     def init_tf(self):
         # Hack to only initialize unitialized variables
@@ -69,7 +70,7 @@ class Discriminator(object):
             else:
                 logits = tf.nn.sigmoid(logits)
                 if self.config["add_decaying_reward_bonus"]:
-                    logits += self.decaying_reward_bonus * (tf.pow(10, logits))
+                    logits += self.decaying_reward_bonus * (tf.exp(logits))
 
         if self.config["use_gaussian_noise_on_eval"]:
              logits = gaussian_noise_layer(logits, self.decaying_noise)
@@ -110,8 +111,9 @@ class Discriminator(object):
                                       name='b_' + name_prefix + str(layer_step))
             if layer_step != number_layers-1:  # final layer has no RELU
                 cur_top = tf.nn.relu(tf.matmul(cur_top, cur_weight) + cur_bias)
-                if dropout is not None:
-                    cur_top = tf.nn.dropout(cur_top, dropout)
+                if self.config["use_decaying_dropout"]:
+                    print("Using dropout")
+                    pred = tf.nn.dropout(cur_top, (1.0 - self.decaying_dropout))
             else:
                 cur_top = tf.matmul(cur_top, cur_weight) + cur_bias
         return cur_top
@@ -491,13 +493,6 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
             # tf.reshape(tf.one_hot(tf.nn.top_k(self.termination_softmax_logits).indices, tf.shape(self.termination_softmax_logits)[1]), tf.shape(self.termination_softmax_logits))
 
         self.termination_softmax_logits = tf.nn.softmax(termination_options.discrimination_logits)
-
-        # try to make the weights sparse so we dropout features
-        if self.use_l1_loss:
-            l1_regularizer = tf.contrib.layers.l1_regularizer(scale=0.1, scope=None)
-            regularization_penalty = tf.contrib.layers.apply_regularization(l1_regularizer, termination_options.weights)
-        else:
-            regularization_penalty = 0.0
 
         #TODO: add gaussian noise and top-k? https://arxiv.org/pdf/1701.06538.pdf
         # import pdb; pdb.set_trace()
