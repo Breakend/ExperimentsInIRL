@@ -310,8 +310,8 @@ class ConvStateBasedDiscriminator(Discriminator):
         #
         # conv_out_flat = tf.reshape(conv_layer_1, [-1, conv_out_size])
 
-        nn_input = tf.reshape(nn_input, [-1, dim_input[0]*dim_input[1]])
-        fc_output = self.get_mlp_layers(nn_input, n_mlp_layers, dim_hidden, dropout=None)
+        reshaped_nn_input = tf.reshape(nn_input, [-1, dim_input[0]*dim_input[1]])
+        fc_output = self.get_mlp_layers(reshaped_nn_input, n_mlp_layers, dim_hidden, dropout=None)
 
         loss, optimizer = self.get_loss_layer(pred=fc_output, target_output=target)
 
