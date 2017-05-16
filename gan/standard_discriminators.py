@@ -427,6 +427,7 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
                 mutual_info = -(1/2.0) * log10(1-tf.square(corr_coeff))
 
                 mi += mutual_info
+            mi /= float(len(combos))
             importance_weight = self.config["importance_weights"]
             cost += (importance_weight)*tf.nn.l2_loss(mi)
         elif self.config["use_mutual_info_penalty_infogan"]:
@@ -438,7 +439,8 @@ class ConvStateBasedDiscriminatorWithOptions(Discriminator):
                 cond_ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[j].discrimination_logits)), 1))
                 ent = tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.sigmoid(self.discriminator_options[i].discrimination_logits) + TINY), tf.sigmoid(self.discriminator_options[i].discrimination_logits)), 1))
                 mi += (cond_ent + ent)
-
+                
+            mi /= float(len(combos))
             importance_weight = self.config["importance_weights"]
             cost += (importance_weight)*tf.nn.l2_loss(mi)
 
