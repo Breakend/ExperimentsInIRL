@@ -40,7 +40,7 @@ register_custom_envs()
 
 gymenv = GymEnv(args.env, force_reset=True)
 # gymenv.env.seed(124)
-env = TfEnv(normalize(gymenv, normalize_obs=True))
+env = TfEnv(normalize(gymenv, normalize_obs=False))
 
 if env.spec.action_space == 'Discrete':
     policy = CategoricalMLPPolicy(

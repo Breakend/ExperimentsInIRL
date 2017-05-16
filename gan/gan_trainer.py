@@ -7,6 +7,7 @@ class GANCostTrainer(object):
     def __init__(self, input_dims, config=None):
         # input_dims is the size of the feature vector
         self.config = config
+        self.input_dims = input_dims
         self.disc = ConvStateBasedDiscriminator(input_dims, config=config)
 
     def get_reward(self, samples):

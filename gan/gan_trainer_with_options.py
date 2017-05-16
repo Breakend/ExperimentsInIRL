@@ -10,6 +10,7 @@ class GANCostTrainerWithRewardOptions(object):
         """
         # input_dims is the size of the feature vectors
         self.config = config
+        self.input_dims = input_dims
         self.disc = ConvStateBasedDiscriminatorWithOptions(input_dims, mixtures=mixtures, config=config)
 
     def get_reward(self, samples):
