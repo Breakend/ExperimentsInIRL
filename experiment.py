@@ -89,13 +89,16 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
         policy = CategoricalMLPPolicy(
             name="policy",
             env_spec=env.spec,
+            # hidden_nonlinearity=lrelu,
             # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-            hidden_sizes=(400, 300)
+            hidden_sizes=(100, 50, 25)
         )
     else:
         policy = GaussianMLPPolicy(
             name="policy",
             env_spec=env.spec,
+            # std_hidden_nonlinearity=lrelu,
+            # hidden_nonlinearity=lrelu,
             hidden_sizes=(100, 50, 25)
         )
 

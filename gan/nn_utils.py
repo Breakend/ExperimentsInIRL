@@ -28,3 +28,16 @@ def initialize_uninitialized(sess):
 def gaussian_noise_layer(input_layer, std):
     noise = tf.random_normal(shape=tf.shape(input_layer), mean=0, stddev=std, dtype=tf.float32)
     return input_layer + noise
+
+def lrelu(x, alpha=.01, max_value=None):
+    '''LeakyReLU.
+
+    alpha: slope of negative section.
+    '''
+    negative_part = tf.nn.relu(-x)
+    x = tf.nn.relu(x)
+    if max_value is not None:
+        x = tf.clip_by_value(x, tf.cast(0., dtype=tf.float32),
+                             tf.cast(max_value, dtype=ft.float32))
+    x -= tf.constant(alpha, dtype=tf.float32) * negative_part
+    return x

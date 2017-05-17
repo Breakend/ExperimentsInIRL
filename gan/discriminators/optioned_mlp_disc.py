@@ -129,7 +129,7 @@ class MLPMixingDiscriminator(Discriminator):
                 # input_shape=(env_spec.observation_space.flat_dim,),
                 output_dim=dim_output,
                 hidden_sizes=hidden_sizes,
-                hidden_nonlinearity=tf.nn.relu,
+                hidden_nonlinearity=lrelu,
                 output_nonlinearity=output_nonlinearity,
                 name=name,
                 input_layer=input_layer
@@ -138,7 +138,11 @@ class MLPMixingDiscriminator(Discriminator):
         return L.get_output(prob_network.output_layer)
 
     def _make_gating_network(self, input_layer, hidden_sizes, apply_softmax=False):
-        return self._make_subnetwork(input_layer, dim_output=self.num_options, hidden_sizes=hidden_sizes, output_nonlinearity=tf.nn.softmax, name="gate")
+        if apply_softmax:
+            output_nonlinearity = tf.nn.softmax
+        else:
+            output_nonlinearity = False
+        return self._make_subnetwork(input_layer, dim_output=self.num_options, hidden_sizes=hidden_sizes, output_nonlinearity=output_nonlinearity, name="gate")
 
     def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, nn_input=None, target=None, discriminator_options=[]):
         # create input layer

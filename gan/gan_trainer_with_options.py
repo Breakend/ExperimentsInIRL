@@ -5,14 +5,14 @@ from .utils import *
 
 class GANCostTrainerWithRewardOptions(object):
 
-    def __init__(self, input_dims, number_of_options=4, mixtures=False, config=None):
+    def __init__(self, input_dims, mixtures=False, config=None):
         """
         TODO: this is a hack for now, but right now just treat the mixtures param as a flag and have a super class set it for the mixtures model
         """
         # input_dims is the size of the feature vectors
         self.config = config
         self.input_dims = input_dims
-        self.disc = MLPMixingDiscriminator(input_dims, mixtures=mixtures, config=config)
+        self.disc = MLPMixingDiscriminator(input_dims, num_options=config["num_options"], mixtures=mixtures, config=config)
 
     def get_reward(self, samples):
         return self.disc.eval(samples)[:, 0]
@@ -64,5 +64,5 @@ class GANCostTrainerWithRewardOptions(object):
 
 class GANCostTrainerWithRewardMixtures(GANCostTrainerWithRewardOptions):
 
-    def __init__(self, input_dims, number_of_options=4, config = None):
-        super(GANCostTrainerWithRewardMixtures, self).__init__(input_dims, number_of_options, mixtures=True, config=config)
+    def __init__(self, input_dims, config = None):
+        super(GANCostTrainerWithRewardMixtures, self).__init__(input_dims, mixtures=True, config=config)

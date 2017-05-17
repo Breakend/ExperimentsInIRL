@@ -15,7 +15,7 @@ class Discriminator(object):
         self.input_dim = input_dim
         self.output_dim_class = output_dim_class
         self.output_dim_dom = output_dim_dom
-        self.learning_rate = 0.001
+        self.learning_rate = config["learning_rate"]
         self.loss = None
         self.discrimination_logits = None
         self.optimizer = None

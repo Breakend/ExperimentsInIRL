@@ -69,6 +69,9 @@ parser.add_argument("--add_decaying_reward_bonus", action="store_true")
 parser.add_argument("--output_enhanced_stats", action="store_true")
 parser.add_argument("--use_decaying_dropout", action="store_true")
 parser.add_argument("--use_experience_replay", action="store_true")
+parser.add_argument("--use_kl_learning_for_trpo", action="store_true")
+parser.add_argument("--num_options", default=4, type=int)
+parser.add_argument("--learning_rate", default=0.0001, type=float)
 
 args = parser.parse_args()
 
@@ -147,6 +150,9 @@ config["add_decaying_reward_bonus"] = args.add_decaying_reward_bonus
 config["output_enhanced_stats"] = args.output_enhanced_stats
 config["use_decaying_dropout"] = args.use_decaying_dropout
 config["use_experience_replay"] = args.use_experience_replay
+config["num_options"] = args.num_options
+config["learning_rate"] = args.learning_rate
+config["use_kl_learning_for_trpo"] = args.use_kl_learning_for_trpo
 
 ## Transfer learning params
 if args.second_env:

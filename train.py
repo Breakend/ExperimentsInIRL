@@ -120,7 +120,7 @@ class Trainer(object):
                 kl = self.sess.run(kl_divergence)
                 print("Cost training reward KL divergence: %f" % kl)
                 cost_t_steps += 1
-                if kl >= .01 or cost_t_steps >= 6:
+                if kl >= .01 or cost_t_steps >= 5:
                     train = False
                 # if kl >= .1:
                 # Probably need to lower the learning rate so we don't diverge from the distribution so much?
@@ -138,13 +138,16 @@ class Trainer(object):
 
         # TODO: make this not a tf function, seems like too much overhead
         if self.prev_reward_dist:
+            if config["use_kl_learning_for_trpo"]:
             # import pdb; pdb.set_trace()
-            kl_divergence = tf.contrib.distributions.kl(dist, self.prev_reward_dist)
-            kl = self.sess.run(kl_divergence)
+                kl_divergence = tf.contrib.distributions.kl(dist, self.prev_reward_dist)
+                kl = self.sess.run(kl_divergence)
 
-            logger.record_tabular("RewardDistKLSinceLastCostUpdate",kl)
-            kl_with_decay = .1 * (.96 ** self.iteration/20)
-            if kl >= kl_with_decay:
+                logger.record_tabular("RewardDistKLSinceLastCostUpdate",kl)
+                kl_with_decay = .1 * (.96 ** (self.iteration/5))
+                if kl >= kl_with_decay:
+                    self.should_train_cost = True
+            else:
                 self.should_train_cost = True
 
         total_len = len(policy_training_samples['observations'])
@@ -161,6 +164,7 @@ class Trainer(object):
             self.gc_time = time.time()
         # print("*******************************************")
         logger.record_tabular("DiscrimReward", np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
+        logger.record_tabular("AverageTrajLen",np.mean([len(p['rewards']) for p in novice_rollouts]))
         logger.record_tabular("TrainingIter", self.iteration)
         logger.dump_tabular(with_prefix=False)
         # print("*******************************************")
