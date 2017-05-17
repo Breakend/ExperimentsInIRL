@@ -59,6 +59,7 @@ class Trainer(object):
         self.rand_algo.init_opt()
         self.should_do_policy_step = True
         self.should_do_exploration = True
+        self.num_steps_since_last_trpo = 0
 
     def __replace_rollout_in_cache(self, cache, rollout):
         for i, x in enumerate(cache):
@@ -183,9 +184,11 @@ class Trainer(object):
         print("*******************************************")
         print("True Reward: %f" % ave_true_reward)
         print("*******************************************")
-        if ave_true_reward >= self.cache_reward*.85:
+        if ave_true_reward >= self.cache_reward*.85 or self.num_steps_since_last_trpo > 25:
             # if our average reward is in some threshold of the max TRPO reward, let TRPO go again
             self.should_do_policy_step = True
+        else:
+            self.num_steps_since_last_trpo += 1
 
         novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames,  batch_size=config["policy_opt_batch_size"])
 

@@ -72,6 +72,8 @@ class Trainer(object):
 
         novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames,  batch_size=config["policy_opt_batch_size"])
 
+        # import pdb; pdb.set_trace()
+
         mu, std = norm.fit(np.concatenate([np.array(p['rewards']).reshape(-1) for p in novice_rollouts]))
         dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
 
@@ -95,7 +97,7 @@ class Trainer(object):
             cost_t_steps = 0
             while train:
                 if self.is_first_disc_update:
-                    num_epochs = 10
+                    num_epochs = 3
                     self.is_first_disc_update = False
                 else:
                     num_epochs = 1

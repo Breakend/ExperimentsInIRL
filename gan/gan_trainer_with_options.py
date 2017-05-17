@@ -1,5 +1,6 @@
 from .standard_discriminators import ConvStateBasedDiscriminatorWithOptions
 import numpy as np
+from .discriminators.optioned_mlp_disc import MLPMixingDiscriminator
 from .utils import *
 
 class GANCostTrainerWithRewardOptions(object):
@@ -11,7 +12,7 @@ class GANCostTrainerWithRewardOptions(object):
         # input_dims is the size of the feature vectors
         self.config = config
         self.input_dims = input_dims
-        self.disc = ConvStateBasedDiscriminatorWithOptions(input_dims, mixtures=mixtures, config=config)
+        self.disc = MLPMixingDiscriminator(input_dims, mixtures=mixtures, config=config)
 
     def get_reward(self, samples):
         return self.disc.eval(samples)[:, 0]

@@ -1,4 +1,5 @@
 from .standard_discriminators import ConvStateBasedDiscriminator
+from .discriminators.mlp_disc import MLPDiscriminator
 from .utils import *
 import numpy as np
 
@@ -8,7 +9,7 @@ class GANCostTrainer(object):
         # input_dims is the size of the feature vector
         self.config = config
         self.input_dims = input_dims
-        self.disc = ConvStateBasedDiscriminator(input_dims, config=config)
+        self.disc = MLPDiscriminator(input_dims, config=config)
 
     def get_reward(self, samples):
         # import pdb; pdb.set_trace()
