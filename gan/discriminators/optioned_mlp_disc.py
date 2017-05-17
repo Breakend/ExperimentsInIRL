@@ -21,6 +21,9 @@ class MLPMixingDiscriminator(Discriminator):
         self.input_dim = input_dim
         self.dim_output = 1
         self.mixtures = mixtures
+        self.cv_penalty = None
+        self.old_mi = None
+        self.new_mi = None
 
         if "subnetwork_hidden_sizes" in config:
             self.subnetwork_hidden_sizes = config["subnetwork_hidden_sizes"]
@@ -31,6 +34,19 @@ class MLPMixingDiscriminator(Discriminator):
 
         self.init_tf()
 
+        self.losses_printed = []
+        losses = []
+        if self.old_mi is not None:
+            losses.append(self.old_mi)
+            self.losses_printed.append("old_mi")
+        if self.new_mi is not None:
+            losses.append(self.new_mi)
+            self.losses_printed.append("new_mi")
+        if self.cv_penalty is not None:
+            losses.append(self.cv_penalty)
+            self.losses_printed.append("cv_penalty")
+        self.extra_losses = losses
+
     def get_lab_accuracy(self, data, class_labels):
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
@@ -38,6 +54,10 @@ class MLPMixingDiscriminator(Discriminator):
     def get_mse(self, data, class_labels):
         return self.sess.run([self.mse], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
+
+    def get_separate_losses(self, data, class_labels):
+        return self.sess.run(self.extra_losses, feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})
 
     def get_lab_precision(self, data, class_labels):
         return self.sess.run([self.label_precision], feed_dict={self.nn_input: data,
@@ -47,6 +67,9 @@ class MLPMixingDiscriminator(Discriminator):
         return self.sess.run([self.label_recall], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
+    def get_termination_activations(self, data, class_labels):
+        return self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: data,
+                                                               self.class_target: class_labels})[0]
     def get_loss_layer(self, pred, target_output):
         # http://stackoverflow.com/questions/40698709/tensorflow-interpretation-of-weight-in-weighted-cross-entropy
         # self.pos_weighting = tf.placeholder('float', [], name='pos_weighting')
@@ -62,7 +85,8 @@ class MLPMixingDiscriminator(Discriminator):
             mean, var = tf.nn.moments(self.termination_importance_values, axes=[0])
             cv = var/mean
             importance_weight = self.config["importance_weights"]
-            cost += importance_weight*tf.nn.l2_loss(cv)
+            self.cv_penalty = importance_weight*10.0*tf.nn.l2_loss(cv)
+            cost += self.cv_penalty
 
         if self.config["use_mutual_info_penalty_nn_paper"]:
             print("Using Mutual info penalty")
@@ -88,7 +112,8 @@ class MLPMixingDiscriminator(Discriminator):
                 mi += mutual_info
             mi /= float(len(combos))
             importance_weight = self.config["importance_weights"]
-            cost += (importance_weight)*tf.nn.l2_loss(mi)
+            self.old_mi = (importance_weight)*tf.nn.l2_loss(mi)
+            cost += self.old_mi
         elif self.config["use_mutual_info_penalty_infogan"]:
             print("Using Mutual info penalty")
             combos = [item for idx, item in enumerate(itertools.combinations(range(len(self.discriminator_options)), 2))]
@@ -101,12 +126,13 @@ class MLPMixingDiscriminator(Discriminator):
 
             mi /= float(len(combos))
             importance_weight = self.config["importance_weights"]
-            cost += (importance_weight)*tf.nn.l2_loss(mi)
+            self.new_mi = (importance_weight)*tf.nn.l2_loss(mi)
+            cost += self.new_mi
 
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(cost)
         return cost, optimizer
 
-    def _remake_network_from_disc_options(self, discriminator_options, top_gradients = False, num_extra_options = 0):
+    def _remake_network_from_disc_options(self, discriminator_options, stop_gradients = False, num_extra_options = 0):
         self.actual_train_step = 0
 
         if stop_gradients:
@@ -141,7 +167,7 @@ class MLPMixingDiscriminator(Discriminator):
         if apply_softmax:
             output_nonlinearity = tf.nn.softmax
         else:
-            output_nonlinearity = False
+            output_nonlinearity = None
         return self._make_subnetwork(input_layer, dim_output=self.num_options, hidden_sizes=hidden_sizes, output_nonlinearity=output_nonlinearity, name="gate")
 
     def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, nn_input=None, target=None, discriminator_options=[]):
@@ -160,7 +186,7 @@ class MLPMixingDiscriminator(Discriminator):
                 discriminator_options.append(subnet)
 
         # only apply softmax if we're doing mixtures, if sparse mixtures or options, need to apply after sparsifying
-        gating_network = self._make_gating_network(l_in, apply_softmax = self.mixtures, hidden_sizes=subnetwork_hidden_sizes)
+        gating_network = self._make_gating_network(l_in, apply_softmax = True, hidden_sizes=subnetwork_hidden_sizes)
 
         #TODO: a better formulation is to have terminations be a latent variable that somehow sums to 1
         #TODO: can we combined these mixtures in interesting ways to train each other?
@@ -172,13 +198,14 @@ class MLPMixingDiscriminator(Discriminator):
 
         # Get the top K options if using optiongan
         if not self.mixtures:
+            print("Using options")
             k = 1
             indices = tf.nn.top_k(gating_network, k=k).indices
             vec = tf.zeros( tf.shape(gating_network))
             for k in range(k):
                 vec += tf.reshape(tf.one_hot(indices[:,k], tf.shape(gating_network)[1]), tf.shape(gating_network))
-            v = tf.cast(vec == 0, vec.dtype) * -math.inf
-            gating_network = tf.nn.softmax(vec * v)
+            # v = tf.cast(vec == 0, vec.dtype) * -math.inf
+            # gating_network = tf.nn.softmax(vec )
 
         self.class_target = target
         self.nn_input = nn_input

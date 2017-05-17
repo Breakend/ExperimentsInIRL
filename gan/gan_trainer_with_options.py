@@ -33,8 +33,10 @@ class GANCostTrainerWithRewardOptions(object):
             batch_losses = []
             lab_acc = []
             lab_recall = []
+            term_activations = []
             lab_precision = []
             lab_error = []
+            all_losses = []
             # import pdb; pdb.set_trace()
             for batch_step in range(0, data.shape[0], batch_size):
 
@@ -50,13 +52,20 @@ class GANCostTrainerWithRewardOptions(object):
                     lab_error.append(self.disc.get_mse(data_batch, classes_batch))
                     lab_precision.append(self.disc.get_lab_precision(data_batch, classes_batch))
                     lab_recall.append(self.disc.get_lab_recall(data_batch, classes_batch))
+                    acts = self.disc.get_termination_activations(data_batch, classes_batch)
+                    all_losses.append(self.disc.get_separate_losses(data_batch, classes_batch))
+                    term_activations.append(np.mean(acts, axis=0))
+
             print('-----------')
+            # import pdb; pdb.set_trace()
             print('loss is ' + str(np.mean(np.array(batch_losses))))
             print('acc is ' + str(np.mean(np.array(lab_acc))))
             if self.config["output_enhanced_stats"]:
                 print('precision is ' + str(np.mean(np.array(lab_precision))))
                 print('recall is ' + str(np.mean(np.array(lab_recall))))
                 print('error is ' + str(np.mean(np.array(lab_error))))
+                print('termactivations is ' + str(np.mean(np.array(term_activations), axis=0)))
+                print('all_losses %s are ' % self.disc.losses_printed + str(np.mean(np.array(all_losses), axis=0)))
             print('-----------')
         self.disc.actual_train_step += 1
         return np.mean(np.array(batch_losses)), np.mean(np.array(lab_acc))
