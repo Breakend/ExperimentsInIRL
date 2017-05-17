@@ -9,6 +9,7 @@ from scipy.stats import norm
 import tensorflow as tf
 import gc
 import time
+from rllab.misc import logger
 
 class Trainer(object):
 
@@ -31,10 +32,6 @@ class Trainer(object):
         # self.sampler = BaseSampler(self.novice_policy_optimizer)
         self.concat_timesteps = concat_timesteps
         self.num_frames = num_frames
-        self.replay_buffer = {}
-        self.max_replays = 3
-        self.replay_index = 0
-        self.replay_times = 40
         self.should_train_cost = True
         self.prev_reward_dist = None
         self.is_first_disc_update = True
@@ -56,6 +53,10 @@ class Trainer(object):
         )
         self.rand_algo.start_worker() # TODO: Call this in constructor instead ?
         self.rand_algo.init_opt()
+        self.replay_pool = RolloutReplayPool(50000,
+                                            replacement_policy='stochastic',
+                                            replacement_prob=0.95,
+                                            max_skip_episode=10)
 
     def step(self, expert_rollouts_tensor, expert_horizon=200, dump_datapoints=False, number_of_sample_trajectories=None, config={}):
         if number_of_sample_trajectories is None:
@@ -66,9 +67,14 @@ class Trainer(object):
         # if we use the cost function when acquiring the novice rollouts, this will use our cost function
         # for optimizing the trajectories
         orig_novice_rollouts = self.novice_policy_optimizer.obtain_samples(self.iteration)
-        print("*******************************************")
-        print("True Reward: %f" % np.mean([np.sum(p['rewards']) for p in orig_novice_rollouts]))
-        print("*******************************************")
+
+        if config["use_experience_replay"]:
+            for x in orig_novice_rollouts:
+                self.replay_pool.add_rollout(x)
+
+        # print("*******************************************")
+        logger.record_tabular("TrueReward", np.mean([np.sum(p['rewards']) for p in orig_novice_rollouts]))
+        # print("*******************************************")
 
         novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames,  batch_size=config["policy_opt_batch_size"])
 
@@ -81,17 +87,21 @@ class Trainer(object):
         if self.cost_trainer and self.should_train_cost and self.train_disc:
             random_rollouts = self.rand_algo.sampler.obtain_samples(itr = self.iteration)
 
-            train_novice_data = novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
+            if config["use_experience_replay"]:
+                replay_batch  = self.replay_pool.random_batch(number_of_sample_trajectories)
+                train_novice_data = novice_rollouts_tensor = [path["observations"] for path in replay_batch]
+            else:
+                train_novice_data = novice_rollouts_tensor = [path["observations"] for path in novice_rollouts]
             random_rollouts_tensor = [path["observations"] for path in random_rollouts]
             prev_cost_dist = dist
 
             # TODO: replace random noise with experience replay
             # Replace first 5 novice rollouts by random policy trajectory
-            if config["algorithm"] != "apprenticeship":# ew hack
-                # append the two lists
-                assert type(novice_rollouts_tensor) is list
-                assert type(random_rollouts_tensor) is list
-                train_novice_data = novice_rollouts_tensor + random_rollouts_tensor
+            # if config["algorithm"] != "apprenticeship":# ew hack
+            #     # append the two lists
+            #     assert type(novice_rollouts_tensor) is list
+            #     assert type(random_rollouts_tensor) is list
+            #     # train_novice_data = novice_rollouts_tensor + random_rollouts_tensor
 
             train = True
             cost_t_steps = 0
@@ -132,7 +142,7 @@ class Trainer(object):
             kl_divergence = tf.contrib.distributions.kl(dist, self.prev_reward_dist)
             kl = self.sess.run(kl_divergence)
 
-            print("Reward distribution KL divergence since last cost update %f"% kl)
+            logger.record_tabular("RewardDistKLSinceLastCostUpdate",kl)
             kl_with_decay = .1 * (.96 ** self.iteration/20)
             if kl >= kl_with_decay:
                 self.should_train_cost = True
@@ -140,6 +150,7 @@ class Trainer(object):
         total_len = len(policy_training_samples['observations'])
         for policy_training_sample_batch in batchify_dict(policy_training_samples, batch_size=config["policy_opt_batch_size"], total_len=total_len): #TODO: configurable batch_size
             self.novice_policy_optimizer.optimize_policy(itr=self.iteration, samples_data=policy_training_sample_batch)
+            # logger.dump_tabular(with_prefix=False)
         self.iteration += 1
 
         if dump_datapoints:
@@ -148,9 +159,10 @@ class Trainer(object):
         if time.time() - self.gc_time > self.gc_time_threshold:
             gc.collect()
             self.gc_time = time.time()
-        print("*******************************************")
-        print("Discriminator Reward: %f" % np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
-        print("Training Iteration (Full Novice Rollouts): %d" % self.iteration)
-        print("*******************************************")
+        # print("*******************************************")
+        logger.record_tabular("DiscrimReward", np.mean([np.sum(p['rewards']) for p in novice_rollouts]))
+        logger.record_tabular("TrainingIter", self.iteration)
+        logger.dump_tabular(with_prefix=False)
+        # print("*******************************************")
 
         return np.mean([np.sum(p['true_rewards']) for p in novice_rollouts]), np.mean([np.sum(p['rewards']) for p in novice_rollouts])

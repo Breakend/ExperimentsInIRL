@@ -239,6 +239,13 @@ class SimpleReplayPool(object):
         self._initials[self._top] = initial
         self.advance()
 
+    def add_rollout(self, rollout):
+        for i, stuff in enumerate(zip(rollout["observations"], rollout['actions'], rollout['rewards'])):
+            observation, action, reward = stuff
+            terminal = (i==len(rollout["observations"])-1)
+            initial = (i == 0)
+            self.add_sample(observation, action, reward, terminal, inital)
+
     def check_replacement(self):
         if self._replacement_prob < 1.0:
             if self._size < self._max_pool_size or \
@@ -306,3 +313,32 @@ class SimpleReplayPool(object):
     @property
     def size(self):
         return self._size
+
+class RolloutReplayPool(object):
+    """
+    Stores complete rollouts
+    """
+    def __init__(
+            self, max_pool_size,
+            replacement_policy='stochastic', replacement_prob=1.0,
+            max_skip_episode=10):
+        self._max_pool_size = max_pool_size
+        self._replacement_policy = replacement_policy
+        self._replacement_prob = replacement_prob
+        self._max_skip_episode = max_skip_episode
+        self._rollouts = []
+        self._replacement_index = 0
+
+    def add_rollout(self, rollout):
+        if len(self._rollouts) < self._max_pool_size:
+            self._rollouts.append(rollout)
+        else:
+            skip = np.random.uniform() > self._replacement_prob
+            if skip:
+                return
+            else:
+                self._rollouts[self._replacement_index] = rollout
+                self._replacement_index += 1
+
+    def random_batch(self, batch_size):
+        return np.random.choice(self._rollouts, size=batch_size)

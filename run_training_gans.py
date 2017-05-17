@@ -68,6 +68,7 @@ parser.add_argument("--stop_disc_training_on_second_run", action="store_true")
 parser.add_argument("--add_decaying_reward_bonus", action="store_true")
 parser.add_argument("--output_enhanced_stats", action="store_true")
 parser.add_argument("--use_decaying_dropout", action="store_true")
+parser.add_argument("--use_experience_replay", action="store_true")
 
 args = parser.parse_args()
 
@@ -145,6 +146,7 @@ config["stop_disc_training_on_second_run"] = args.stop_disc_training_on_second_r
 config["add_decaying_reward_bonus"] = args.add_decaying_reward_bonus
 config["output_enhanced_stats"] = args.output_enhanced_stats
 config["use_decaying_dropout"] = args.use_decaying_dropout
+config["use_experience_replay"] = args.use_experience_replay
 
 ## Transfer learning params
 if args.second_env:
@@ -173,7 +175,6 @@ if args.env not in bad_short_runs_mapping.keys():
 
 config['short_run_is_bad'] = bad_short_runs_mapping[args.env]
 
-# config["replay_old_samples"] = args.replay_old_samples
 # TODO: experience replay
 
 true_rewards = []
