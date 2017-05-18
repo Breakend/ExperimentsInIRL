@@ -339,7 +339,7 @@ class RolloutReplayPool(object):
             else:
                 self._rollouts[self._replacement_index] = rollout
                 self._replacement_index += 1
-                self.replacement_index %= len(self._rollouts)
+                self._replacement_index %= len(self._rollouts)
 
     def random_batch(self, batch_size):
         return np.random.choice(self._rollouts, size=batch_size)
