@@ -178,7 +178,7 @@ class MLPMixingDiscriminator(Discriminator):
         if target is None:
             target = tf.placeholder('float', [None, dim_output], name='targets')
 
-        l_in = L.InputLayer(shape=(None,) + tuple(dim_input), input_var=nn_input, name="input")
+        l_in = L.InputLayer(shape=(None,) + tuple(dim_input), input_var=nn_input)
 
         if len(discriminator_options) < self.num_options:
             for i in range(len(discriminator_options), self.num_options):
@@ -273,13 +273,3 @@ class MLPMixingDiscriminator(Discriminator):
             fig.suptitle('Summed Activations for Dimension %d' % dimension)
             fig.savefig('activations_dim_%d.png' % dimension)
             plt.clf()
-
-    @staticmethod
-    def get_input_layer(num_frames, state_size, dim_output=1):
-        """produce the placeholder inputs that are used to run ops forward and backwards.
-        net_input: usually an observation.
-        action: mu, the ground truth actions we're trying to learn.
-        precision: precision matrix used to commpute loss."""
-        net_input = tf.placeholder('float', [None, num_frames, state_size], name='nn_input')
-        targets = tf.placeholder('float', [None, dim_output], name='targets')
-        return net_input, targets

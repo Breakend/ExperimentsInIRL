@@ -185,6 +185,7 @@ config['short_run_is_bad'] = bad_short_runs_mapping[args.env]
 
 true_rewards = []
 transfer_learning_true_rewards = []
+
 for i in range(args.num_experiments):
     print("Running Experiment %d" % i)
     with tf.variable_scope('sess_%d'%i):
