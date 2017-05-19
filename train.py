@@ -114,6 +114,13 @@ class Trainer(object):
                 ave_loss, ave_acc = self.cost_trainer.train_cost(train_novice_data, expert_rollouts_tensor, number_epochs=num_epochs, num_frames=self.num_frames)
                 # import pdb; pdb.set_trace()
                 novice_rollouts = process_samples_with_reward_extractor(orig_novice_rollouts, self.cost_approximator, self.concat_timesteps, self.num_frames,  batch_size=config["policy_opt_batch_size"])
+
+                # TODO: this sucks, shouldn't use KL here, but should use KS test? We don't know that the reward distribution comes from a normal
+                # so assuming that and doing KL isn't really valid theoretically. KS-test will tell you once they are drawn from different distros
+                # If the K-S statistic is small or the p-value is high, then we cannot reject the (null) hypothesis that the distributions of the
+                # two samples are the same.
+                # Assumes a continuous distribution??
+                # scipy.stats.ks_2samp(data1, data2)
                 mu, std = norm.fit(np.concatenate([np.array(p['rewards']).reshape(-1) for p in novice_rollouts]))
                 dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
                 kl_divergence = tf.contrib.distributions.kl(dist, prev_cost_dist)

@@ -36,7 +36,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("expert_rollout_pickle_path")
 parser.add_argument("trained_policy_pickle_path")
 parser.add_argument("--num_frames", default=4, type=int)
-parser.add_argument("--num_experiments", default=5, type=int)
+# parser.add_argument("--num_experiments", default=5, type=int)
 parser.add_argument("--importance_weights", default=0.5, type=float)
 parser.add_argument("--algorithm", default="rlgan")
 parser.add_argument("--env", default="CartPole-v0")
@@ -72,6 +72,7 @@ parser.add_argument("--use_experience_replay", action="store_true")
 parser.add_argument("--use_kl_learning_for_trpo", action="store_true")
 parser.add_argument("--num_options", default=4, type=int)
 parser.add_argument("--learning_rate", default=0.0001, type=float)
+parser.add_argument("--experiment_data_pickle_name", default="", help="Output path for experiment data (true reward graphs, etc.), defaults to generated name" )
 
 args = parser.parse_args()
 
@@ -186,58 +187,61 @@ config['short_run_is_bad'] = bad_short_runs_mapping[args.env]
 true_rewards = []
 transfer_learning_true_rewards = []
 
-for i in range(args.num_experiments):
-    print("Running Experiment %d" % i)
-    with tf.variable_scope('sess_%d'%i):
-        true_rewards_exp, actual_rewards_exp, transfer_learning_true_rewards_exp, transfer_learning_disc_rewards_exp = run_experiment(args.expert_rollout_pickle_path,
-                                                              args.trained_policy_pickle_path,
-                                                              env,
-                                                              arg_to_cost_trainer_map[args.algorithm],
-                                                              iterations=args.iterations,
-                                                              num_frames=args.num_frames,
-                                                              config=config,
-                                                              traj_len=max_path_length)
-        true_rewards.append(true_rewards_exp)
-        transfer_learning_true_rewards.append(transfer_learning_true_rewards_exp)
+# for i in range(args.num_experiments):
+true_rewards_exp, actual_rewards_exp, transfer_learning_true_rewards_exp, transfer_learning_disc_rewards_exp = run_experiment(args.expert_rollout_pickle_path,
+                                                      args.trained_policy_pickle_path,
+                                                      env,
+                                                      arg_to_cost_trainer_map[args.algorithm],
+                                                      iterations=args.iterations,
+                                                      num_frames=args.num_frames,
+                                                      config=config,
+                                                      traj_len=max_path_length)
+true_rewards.append(true_rewards_exp)
+transfer_learning_true_rewards.append(transfer_learning_true_rewards_exp)
 
-    avg_true_rewards = np.mean(true_rewards, axis=0)
-    true_rewards_variance = np.var(true_rewards, axis=0)
-    true_rewards_std = np.sqrt(true_rewards_variance)
+avg_true_rewards = np.mean(true_rewards, axis=0)
+true_rewards_variance = np.var(true_rewards, axis=0)
+true_rewards_std = np.sqrt(true_rewards_variance)
 
-    lr_flag = "nolrschedule"
+lr_flag = "nolrschedule"
 
-    with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag), "wb") as output_file:
-        pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
+if not args.experiment_data_pickle_name:
+    experiment_data_pickle_name = "%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_data.pickle" % (args.algorithm, args.env, args.importance_weights, 1, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag)
+else:
+    experiment_data_pickle_name = args.experiment_data_pickle_name
 
-    fig = plt.figure()
-    plt.plot(avg_true_rewards)
-    plt.xlabel('Training iterations', fontsize=18)
-    plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
-        alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
-        linewidth=4, linestyle='dashdot', antialiased=True)
+with open(experiment_data_pickle_name, "wb") as output_file:
+    pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
-    plt.ylabel('Average True Reward', fontsize=16)
-    # plt.legend()
-    fig.suptitle('True Reward over Training Iterations')
-    fig.savefig('true_reward_option_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
-    plt.clf()
+fig = plt.figure()
+plt.plot(avg_true_rewards)
+plt.xlabel('Training iterations', fontsize=18)
+plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
+    alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
+    linewidth=4, linestyle='dashdot', antialiased=True)
 
-    # import pdb; pdb.set_trace()
-    avg_true_rewards = np.mean(transfer_learning_true_rewards, axis=0)
-    true_rewards_variance = np.var(transfer_learning_true_rewards, axis=0)
-    true_rewards_std = np.sqrt(true_rewards_variance)
-    with open("%s_%s_i%f_e%d_f%d_er%d_nr%d_%s_rewards_transferdata.pickle" % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag), "wb") as output_file:
-        pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
+plt.ylabel('Average True Reward', fontsize=16)
+# plt.legend()
+fig.suptitle('True Reward over Training Iterations')
+fig.savefig('true_reward_option_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, 1, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
+plt.clf()
 
-    fig = plt.figure()
-    plt.plot(avg_true_rewards)
-    plt.xlabel('Training iterations', fontsize=18)
-    plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
-        alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
-        linewidth=4, linestyle='dashdot', antialiased=True)
+# import pdb; pdb.set_trace()
+avg_true_rewards = np.mean(transfer_learning_true_rewards, axis=0)
+true_rewards_variance = np.var(transfer_learning_true_rewards, axis=0)
+true_rewards_std = np.sqrt(true_rewards_variance)
+with open("transfer_" + experiment_data_pickle_name, "wb") as output_file:
+    pickle.dump(dict(avg=avg_true_rewards, var=true_rewards_variance), output_file)
 
-    plt.ylabel('Average True Reward', fontsize=16)
-    # plt.legend()
-    fig.suptitle('True Reward over Training Iterations')
-    fig.savefig('true_reward_option_transfer_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, args.num_experiments, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
-    plt.clf()
+fig = plt.figure()
+plt.plot(avg_true_rewards)
+plt.xlabel('Training iterations', fontsize=18)
+plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards_std, avg_true_rewards+true_rewards_std,
+    alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',
+    linewidth=4, linestyle='dashdot', antialiased=True)
+
+plt.ylabel('Average True Reward', fontsize=16)
+# plt.legend()
+fig.suptitle('True Reward over Training Iterations')
+fig.savefig('true_reward_option_transfer_%s_%s_i%f_e%d_f%d_er%d_nr%d_%s.png' % (args.algorithm, args.env, args.importance_weights, 1, args.num_frames, args.num_expert_rollouts, args.num_novice_rollouts, lr_flag))
+plt.clf()

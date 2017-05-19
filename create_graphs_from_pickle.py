@@ -8,17 +8,24 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 #TODO: add multiple so we plot multiple lines
-parser.add_argument("datapath")
+parser.add_argument("datapath", nargs='+')
 
 args = parser.parse_args()
 
 data = {}
 
-with open(args.datapath, "rb") as output_file:
-    data = pickle.load(output_file)
+rewards_for_experiments = []
 
-avg_true_rewards = data["avg"]
-true_rewards_std = np.sqrt(data["var"])
+for path in args.datapath:
+    with open(path, "rb") as output_file:
+        data = pickle.load(output_file)
+
+    avg_true_rewards = data["avg"]
+    true_rewards_std = np.sqrt(data["var"])
+    rewards_for_experiments.append(avg_true_rewards)
+
+avg_true_rewards = np.mean(rewards_for_experiments, axis=0)
+true_rewards_std = np.std(rewards_for_experiments, axis=0)
 
 fig = plt.figure()
 plt.plot(avg_true_rewards)
@@ -30,5 +37,5 @@ plt.fill_between(np.arange(len(avg_true_rewards)), avg_true_rewards-true_rewards
 plt.ylabel('Average True Reward', fontsize=16)
 # plt.legend()
 fig.suptitle('True Reward over Training Iterations')
-fig.savefig('%s_graph.png' % (args.datapath.split(".")[0]))
+fig.savefig('all_experiments_graph.png')
 plt.clf()
