@@ -17,13 +17,15 @@ import tensorflow as tf
 from envs.transfer.register_envs import *
 import numpy as np
 import argparse
+from policies.categorical_decomposed_policy import CategoricalDecomposedPolicy
+from policies.gaussian_decomposed_policy import GaussianDecomposedPolicy
 
 from rllab.misc import ext
 # ext.set_seed(124)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("env")
-parser.add_argument("expert_rollout_pickle_path")
+# parser.add_argument("expert_rollout_pickle_path")
 parser.add_argument("num_iters", type=int)
 args = parser.parse_args()
 
@@ -44,17 +46,18 @@ gymenv = GymEnv(args.env, force_reset=True)
 env = TfEnv(normalize(gymenv, normalize_obs=False))
 
 if type(env.spec.action_space) is Discrete:
-    policy = CategoricalMLPPolicy(
+    policy = CategoricalDecomposedPolicy(
     name="policy",
     env_spec=env.spec,
     # The neural network policy should have two hidden layers, each with 32 hidden units.
-    hidden_sizes=(32, 32)
+    hidden_sizes=(8, 8)
     )
 else:
-    policy = GaussianMLPPolicy(
+    policy = GaussianDecomposedPolicy(
     name="policy",
     env_spec=env.spec,
-    hidden_sizes=(100, 50, 25)
+    hidden_sizes=(25, 25),
+    num_options = 4
     )
 
 baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -88,5 +91,5 @@ with tf.Session() as sess:
 
 # import pdb; pdb.set_trace()
 
-with open(args.expert_rollout_pickle_path, "wb") as output_file:
-    pickle.dump(rollouts, output_file)
+# with open(args.expert_rollout_pickle_path, "wb") as output_file:
+#     pickle.dump(rollouts, output_file)
