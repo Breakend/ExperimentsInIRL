@@ -2,6 +2,8 @@ from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 import os.path as osp
+from rllab.baselines.zero_baseline import ZeroBaseline
+
 
 from rllab.misc.instrument import stub, run_experiment_lite
 
@@ -21,9 +23,11 @@ import numpy as np
 import argparse
 from policies.categorical_decomposed_policy import CategoricalDecomposedPolicy
 from policies.gaussian_decomposed_policy import GaussianDecomposedPolicy
-
 from rllab.misc import ext
-stub(globals())
+from envs.doom_env import DoomEnv
+
+
+# stub(globals())
 ext.set_seed(1)
 
 parser = argparse.ArgumentParser()
@@ -49,7 +53,11 @@ args = parser.parse_args()
 
 register_custom_envs()
 
-gymenv = GymEnv(args.env, force_reset=True, record_video=False, record_log=False)
+if 'Doom' in args.env:
+    gymenv = DoomEnv(args.env, force_reset=True, record_video=False, record_log=False)
+else:
+    gymenv = GymEnv(args.env, force_reset=True, record_video=False, record_log=False)
+
 # gymenv.env.seed(124)
 env = TfEnv(normalize(gymenv, normalize_obs=False))
 
@@ -78,7 +86,11 @@ else:
         num_options = 4
         )
 
-baseline = LinearFeatureBaseline(env_spec=env.spec)
+if "Doom" in args.env:
+    baseline = ZeroBaseline(env_spec=env.spec)
+else:
+    baseline = LinearFeatureBaseline(env_spec=env.spec)
+
 
 iters = args.num_iters
 
