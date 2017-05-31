@@ -1,6 +1,8 @@
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
+import os.path as osp
+
 from rllab.misc.instrument import stub, run_experiment_lite
 
 from sandbox.rocky.tf.envs.base import TfEnv
@@ -21,12 +23,18 @@ from policies.categorical_decomposed_policy import CategoricalDecomposedPolicy
 from policies.gaussian_decomposed_policy import GaussianDecomposedPolicy
 
 from rllab.misc import ext
-# ext.set_seed(124)
+stub(globals())
+ext.set_seed(1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("env")
 # parser.add_argument("expert_rollout_pickle_path")
 parser.add_argument("num_iters", type=int)
+parser.add_argument("--run_baseline", action="store_true")
+parser.add_argument("--use_ec2", action="store_true")
+parser.add_argument("--data_dir", default="./data")
+parser.add_argument("--dont_terminate_machine", action="store_false", help="Whether to terminate your spot instance or not. Be careful.")
+
 args = parser.parse_args()
 
 # stub(globals())
@@ -41,24 +49,34 @@ args = parser.parse_args()
 
 register_custom_envs()
 
-gymenv = GymEnv(args.env, force_reset=True)
+gymenv = GymEnv(args.env, force_reset=True, record_video=False, record_log=False)
 # gymenv.env.seed(124)
 env = TfEnv(normalize(gymenv, normalize_obs=False))
 
-if type(env.spec.action_space) is Discrete:
-    policy = CategoricalDecomposedPolicy(
+if args.run_baseline:
+    policy = GaussianMLPPolicy(
     name="policy",
     env_spec=env.spec,
     # The neural network policy should have two hidden layers, each with 32 hidden units.
-    hidden_sizes=(8, 8)
+    hidden_sizes=(100, 50, 25),
+    hidden_nonlinearity=tf.nn.relu,
     )
 else:
-    policy = GaussianDecomposedPolicy(
-    name="policy",
-    env_spec=env.spec,
-    hidden_sizes=(25, 25),
-    num_options = 4
-    )
+    if type(env.spec.action_space) is Discrete:
+        policy = CategoricalDecomposedPolicy(
+        name="policy",
+        env_spec=env.spec,
+        # The neural network policy should have two hidden layers, each with 32 hidden units.
+        hidden_sizes=(8, 8)
+        )
+    else:
+        policy = GaussianDecomposedPolicy(
+        name="policy",
+        env_spec=env.spec,
+        hidden_sizes=(50, 25, 10),
+        hidden_nonlinearity=tf.nn.relu,
+        num_options = 4
+        )
 
 baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -68,7 +86,7 @@ algo = TRPO(
     env=env,
     policy=policy,
     baseline=baseline,
-    batch_size=50000, # Mujoco tasks need 20000-50000
+    batch_size=5000, # Mujoco tasks need 20000-50000
     max_path_length=env.horizon, # And 500
     n_itr=iters,
     discount=0.99,
@@ -76,20 +94,20 @@ algo = TRPO(
     optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
 )
 
-# run_experiment_lite(
-#     ,
-#     n_parallel=1,
-#     snapshot_mode="last",
-#     seed=1
-# )
-with tf.Session() as sess:
-
-    algo.train(sess=sess)
-
-    rollouts = algo.obtain_samples(iters+1)
-    print("Average reward for expert rollouts: %f" % np.mean([np.sum(p['rewards']) for p in rollouts]))
-
-# import pdb; pdb.set_trace()
-
-# with open(args.expert_rollout_pickle_path, "wb") as output_file:
-#     pickle.dump(rollouts, output_file)
+run_experiment_lite(
+    algo.train(),
+    log_dir=None if args.use_ec2 else args.data_dir,
+    # Number of parallel workers for sampling
+    n_parallel=1,
+    # Only keep the snapshot parameters for the last iteration
+    snapshot_mode="last",
+    # Specifies the seed for the experiment. If this is not provided, a random seed
+    # will be used
+    exp_prefix="LifeLongLearning_" + args.env + "_trpo",
+    seed=1,
+    mode="ec2" if args.use_ec2 else "local",
+    plot=False,
+    # dry=True,
+    terminate_machine=args.dont_terminate_machine,
+    added_project_directories=[osp.abspath(osp.join(osp.dirname(__file__), '.'))]
+)

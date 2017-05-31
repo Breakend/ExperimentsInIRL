@@ -83,7 +83,7 @@ class GaussianDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable):
 
             self.num_options = num_options
 
-            input_layer, output_layer = self.make_network((obs_dim,), action_dim, hidden_sizes)
+            input_layer, output_layer = self.make_network((obs_dim,), action_dim, hidden_sizes, hidden_nonlinearity=hidden_nonlinearity)
 
             self._mean_network_output_layer = output_layer
 
@@ -138,12 +138,12 @@ class GaussianDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable):
                 outputs=[mean_var, log_std_var],
             )
 
-    def _make_subnetwork(self, input_layer, dim_output, hidden_sizes, output_nonlinearity=tf.sigmoid, name="pred_network"):
+    def _make_subnetwork(self, input_layer, dim_output, hidden_sizes, output_nonlinearity=tf.sigmoid, hidden_nonlinearity=tf.nn.tanh, name="pred_network"):
 
         prob_network = MLP(
                 output_dim=dim_output,
                 hidden_sizes=hidden_sizes,
-                hidden_nonlinearity=tf.nn.tanh,
+                hidden_nonlinearity=hidden_nonlinearity,
                 output_nonlinearity=output_nonlinearity,
                 name=name,
                 input_layer=input_layer
@@ -158,12 +158,12 @@ class GaussianDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable):
             output_nonlinearity = None
         return self._make_subnetwork(input_layer, dim_output=self.num_options, hidden_sizes=hidden_sizes, output_nonlinearity=output_nonlinearity, name="gate")
 
-    def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, discriminator_options=[]):
+    def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, discriminator_options=[], hidden_nonlinearity=tf.nn.tanh):
         l_in = L.InputLayer(shape=(None,) + tuple(dim_input))
 
         if len(discriminator_options) < self.num_options:
             for i in range(len(discriminator_options), self.num_options):
-                subnet = self._make_subnetwork(l_in, dim_output=dim_output, hidden_sizes=subnetwork_hidden_sizes, output_nonlinearity=None, name="option%d" % i)
+                subnet = self._make_subnetwork(l_in, dim_output=dim_output, hidden_sizes=subnetwork_hidden_sizes, output_nonlinearity=None, hidden_nonlinearity=hidden_nonlinearity, name="option%d" % i)
                 discriminator_options.append(subnet)
 
         # only apply softmax if we're doing mixtures, if sparse mixtures or options, need to apply after sparsifying
