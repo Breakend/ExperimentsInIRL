@@ -73,7 +73,7 @@ parser.add_argument("--use_kl_learning_for_trpo", action="store_true")
 parser.add_argument("--num_options", default=4, type=int)
 parser.add_argument("--learning_rate", default=0.0001, type=float)
 parser.add_argument("--experiment_data_pickle_name", default="", help="Output path for experiment data (true reward graphs, etc.), defaults to generated name" )
-
+parser.add_argument("--use_shared_gated_policy", action="store_true")
 args = parser.parse_args()
 
 # TODO: clean this up
@@ -154,6 +154,7 @@ config["use_experience_replay"] = args.use_experience_replay
 config["num_options"] = args.num_options
 config["learning_rate"] = args.learning_rate
 config["use_kl_learning_for_trpo"] = args.use_kl_learning_for_trpo
+config["use_shared_gated_policy"] = args.use_shared_gated_policy
 
 ## Transfer learning params
 if args.second_env:

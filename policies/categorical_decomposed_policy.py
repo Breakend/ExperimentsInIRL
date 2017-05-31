@@ -42,6 +42,7 @@ class CategoricalDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable)
             hidden_sizes=(32, 32),
             hidden_nonlinearity=tf.nn.tanh,
             gating_network=None,
+            input_layer=None,
             num_options=4
     ):
         """
@@ -59,7 +60,7 @@ class CategoricalDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable)
         assert isinstance(env_spec.action_space, Discrete)
 
         with tf.variable_scope(name):
-            input_layer, output_layer = self.make_network((env_spec.observation_space.flat_dim,), env_spec.action_space.n, hidden_sizes)
+            input_layer, output_layer = self.make_network((env_spec.observation_space.flat_dim,), env_spec.action_space.n, hidden_sizes, l_in=input_layer, gating_network=gating_network)
 
             self._l_prob = output_layer
             self._l_obs = input_layer
@@ -96,8 +97,9 @@ class CategoricalDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable)
             output_nonlinearity = None
         return self._make_subnetwork(input_layer, dim_output=self.num_options, hidden_sizes=hidden_sizes, output_nonlinearity=output_nonlinearity, name="gate")
 
-    def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, discriminator_options=[]):
-        l_in = L.InputLayer(shape=(None,) + tuple(dim_input))
+    def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, discriminator_options=[], gating_network=None, l_in=None):
+        if l_in is None:
+            l_in = L.InputLayer(shape=(None,) + tuple(dim_input))
 
         if len(discriminator_options) < self.num_options:
             for i in range(len(discriminator_options), self.num_options):
@@ -105,7 +107,9 @@ class CategoricalDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable)
                 discriminator_options.append(subnet)
 
         # only apply softmax if we're doing mixtures, if sparse mixtures or options, need to apply after sparsifying
-        gating_network = self._make_gating_network(l_in, apply_softmax = True, hidden_sizes=subnetwork_hidden_sizes)
+        if gating_network is None:
+            print("Making new gating network")
+            gating_network = self._make_gating_network(l_in, apply_softmax = True, hidden_sizes=subnetwork_hidden_sizes)
 
         # combined_options = L.ConcatLayer(discriminator_options, axis=1)
         # combined_options = tf.concat(discriminator_options, axis=1)

@@ -48,26 +48,61 @@ class MLPMixingDiscriminator(Discriminator):
         self.extra_losses = losses
 
     def get_lab_accuracy(self, data, class_labels):
+        data = np.squeeze(data)
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
+    def train(self, data_batch, targets_batch):
+        data_batch = np.squeeze(data_batch)
+        cost = self.sess.run([self.optimizer, self.loss], feed_dict={
+                                                                    self.train_step : self.actual_train_step,
+                                                                    #  self.pos_weighting: self.compute_pos_weight(targets_batch),
+                                                                     self.nn_input: data_batch,
+                                                                     self.class_target: targets_batch})[1]
+        return cost
+
+    def eval(self, data, softmax=True):
+        data = np.squeeze(data)
+        logits = self.discrimination_logits
+
+        if softmax is True:
+            if not self.config["short_run_is_bad"]:
+                if self.config["add_decaying_reward_bonus"]:
+                    raise Exception("Decaying bonus for short_run_is_bad=False is not implemented yet")
+                logits = tf.nn.sigmoid(logits) - 1.0
+            else:
+                logits = tf.nn.sigmoid(logits)
+                if self.config["add_decaying_reward_bonus"]:
+                    logits += self.decaying_reward_bonus * (tf.exp(logits))
+
+        if self.config["use_gaussian_noise_on_eval"]:
+             logits = gaussian_noise_layer(logits, self.decaying_noise)
+
+        log_prob = self.sess.run([logits], feed_dict={self.train_step : self.actual_train_step, self.nn_input: data})[0]
+        return log_prob
+
     def get_mse(self, data, class_labels):
+        data = np.squeeze(data)
         return self.sess.run([self.mse], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def get_separate_losses(self, data, class_labels):
+        data = np.squeeze(data)
         return self.sess.run(self.extra_losses, feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})
 
     def get_lab_precision(self, data, class_labels):
+        data = np.squeeze(data)
         return self.sess.run([self.label_precision], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def get_lab_recall(self, data, class_labels):
+        data = np.squeeze(data)
         return self.sess.run([self.label_recall], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def get_termination_activations(self, data, class_labels):
+        data = np.squeeze(data)
         return self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
     def get_loss_layer(self, pred, target_output):
@@ -141,7 +176,7 @@ class MLPMixingDiscriminator(Discriminator):
         if num_extra_options > 0:
             self.num_options += num_extra_options
             for i in range(num_extra_options):
-                subnet = self._make_subnetwork(l_in, dim_output=1, hidden_sizes=self.subnetwork_hidden_sizes, output_nonlinearity=None, name="extraoption%d" % i)
+                subnet,_ = self._make_subnetwork(l_in, dim_output=1, hidden_sizes=self.subnetwork_hidden_sizes, output_nonlinearity=None, name="extraoption%d" % i)
                 discriminator_options.append(subnet)
 
         with tf.variable_scope("second"):
@@ -161,7 +196,7 @@ class MLPMixingDiscriminator(Discriminator):
                 input_layer=input_layer
             )
 
-        return L.get_output(prob_network.output_layer)
+        return L.get_output(prob_network.output_layer), prob_network.output_layer
 
     def _make_gating_network(self, input_layer, hidden_sizes, apply_softmax=False):
         if apply_softmax:
@@ -171,22 +206,26 @@ class MLPMixingDiscriminator(Discriminator):
         return self._make_subnetwork(input_layer, dim_output=self.num_options, hidden_sizes=hidden_sizes, output_nonlinearity=output_nonlinearity, name="gate")
 
     def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, nn_input=None, target=None, discriminator_options=[]):
+        if dim_input[0] != 1:
+            raise NotImplementedError #only allow 1 frame
+
         # create input layer
         if nn_input is None:
-            nn_input = tf.placeholder('float', [None, dim_input[0], dim_input[1]], name='nn_input')
+            nn_input = tf.placeholder('float', [None, dim_input[1]], name='nn_input')
 
         if target is None:
             target = tf.placeholder('float', [None, dim_output], name='targets')
 
-        l_in = L.InputLayer(shape=(None,) + tuple(dim_input), input_var=nn_input)
+        l_in = L.InputLayer(shape=(None,) + tuple([dim_input[1]]), input_var=nn_input)
+        self.input_layer = l_in
 
         if len(discriminator_options) < self.num_options:
             for i in range(len(discriminator_options), self.num_options):
-                subnet = self._make_subnetwork(l_in, dim_output=1, hidden_sizes=subnetwork_hidden_sizes, output_nonlinearity=None, name="option%d" % i)
+                subnet, out_layer = self._make_subnetwork(l_in, dim_output=1, hidden_sizes=subnetwork_hidden_sizes, output_nonlinearity=None, name="option%d" % i)
                 discriminator_options.append(subnet)
 
         # only apply softmax if we're doing mixtures, if sparse mixtures or options, need to apply after sparsifying
-        gating_network = self._make_gating_network(l_in, apply_softmax = True, hidden_sizes=subnetwork_hidden_sizes)
+        gating_network, self.gating_network_out_layer = self._make_gating_network(l_in, apply_softmax = True, hidden_sizes=subnetwork_hidden_sizes)
 
         #TODO: a better formulation is to have terminations be a latent variable that somehow sums to 1
         #TODO: can we combined these mixtures in interesting ways to train each other?

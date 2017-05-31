@@ -22,7 +22,8 @@ from train import Trainer
 from gan.nn_utils import *
 # from gan.gan_trainer import GANCostTrainer
 # from gan.gan_trainer_with_options import GANCostTrainerWithRewardOptions
-
+from policies.categorical_decomposed_policy import CategoricalDecomposedPolicy
+from policies.gaussian_decomposed_policy import GaussianDecomposedPolicy
 import tensorflow as tf
 import pickle
 import argparse
@@ -74,6 +75,8 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     # Choose a policy (Conv based on images, mlp based on states)
     # TODO: may also have to switch out categorical for something else in continuous state spaces??
     # Let's just avoid that for now?
+    cost_trainer = cost_trainer_type([num_frames, obs_dims], config=config)
+
     if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
         policy = CategoricalConvPolicy(
             name="policy",
@@ -86,21 +89,50 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
             hidden_sizes=[200, 200]
         )
     elif type(env.spec.action_space) == Discrete:
-        policy = CategoricalMLPPolicy(
-            name="policy",
-            env_spec=env.spec,
-            # hidden_nonlinearity=lrelu,
-            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-            hidden_sizes=(100, 50, 25)
-        )
+        if config["use_shared_gated_policy"]:
+            print("Using Categorical Decomposed Policy")
+            gating_network = cost_trainer.disc.gating_network_out_layer
+            input_layer = cost_trainer.disc.input_layer
+            policy = CategoricalDecomposedPolicy(
+                name="policy",
+                env_spec=env.spec,
+                # The neural network policy should have two hidden layers, each with 32 hidden units.
+                hidden_sizes=(8, 8),
+                gating_network=gating_network,
+                input_layer = input_layer
+            )
+        else:
+            print("Using Categorical MLP Policy")
+            policy = CategoricalMLPPolicy(
+                name="policy",
+                env_spec=env.spec,
+                # hidden_nonlinearity=lrelu,
+                # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                hidden_sizes=(100, 50, 25)
+            )
     else:
-        policy = GaussianMLPPolicy(
-            name="policy",
-            env_spec=env.spec,
-            # std_hidden_nonlinearity=lrelu,
-            # hidden_nonlinearity=lrelu,
-            hidden_sizes=(100, 50, 25)
-        )
+        if config["use_shared_gated_policy"]:
+            gating_network = cost_trainer.disc.gating_network_out_layer
+            input_layer = cost_trainer.disc.input_layer
+            print("Using Gaussing Decomposed Policy")
+            policy = GaussianDecomposedPolicy(
+                name="policy",
+                env_spec=env.spec,
+                hidden_sizes=(50, 25, 10),
+                hidden_nonlinearity=tf.nn.relu,
+                num_options = 4,
+                gating_network = gating_network,
+                input_layer = input_layer
+            )
+        else:
+            print("Using Gaussing MLP Policy")
+            policy = GaussianMLPPolicy(
+                name="policy",
+                env_spec=env.spec,
+                # std_hidden_nonlinearity=lrelu,
+                # hidden_nonlinearity=lrelu,
+                hidden_sizes=(100, 50, 25)
+            )
 
     if config["img_input"]:
         # TODO: right now the linear feature baseline is too computationally expensive to actually use
@@ -142,8 +174,6 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
     with tf.Session() as sess:
         algo.start_worker()
 
-        cost_trainer = cost_trainer_type([num_frames, obs_dims], config=config)
-
         trainer = Trainer(env=env, sess=sess, cost_approximator=cost_trainer, cost_trainer=cost_trainer, novice_policy=policy, novice_policy_optimizer=algo, num_frames=num_frames)
         sess.run(tf.global_variables_initializer())
 
@@ -181,30 +211,31 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
                 if not config["reset_second_policy"]:
                     second_policy = Serializable.clone(policy) # TODO: start with a fresh policy
                 else:
-                    if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
-                        second_policy = CategoricalConvPolicy(
-                            name="policy",
-                            env_spec=config["second_env"].spec,
-                            conv_filters=[32, 64, 64],
-                            conv_filter_sizes=[3, 3, 3],
-                            conv_strides=[1, 1, 1],
-                            conv_pads=['SAME', 'SAME', 'SAME'],
-                            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-                            hidden_sizes=[200, 200]
-                        )
-                    elif type(env.spec.action_space) == Discrete:
-                        second_policy = CategoricalMLPPolicy(
-                            name="policy",
-                            env_spec=config["second_env"].spec,
-                            # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-                            hidden_sizes=(400, 300)
-                        )
-                    else:
-                        second_policy = GaussianMLPPolicy(
-                            name="policy",
-                            env_spec=config["second_env"].spec,
-                            hidden_sizes=(100, 50, 25)
-                        )
+                    raise NotImplementedError # need to create a new policy
+                    # if config["img_input"]: # TODO: unclear right now if this even works ok. get poor results early on.
+                    #     second_policy = CategoricalConvPolicy(
+                    #         name="policy",
+                    #         env_spec=config["second_env"].spec,
+                    #         conv_filters=[32, 64, 64],
+                    #         conv_filter_sizes=[3, 3, 3],
+                    #         conv_strides=[1, 1, 1],
+                    #         conv_pads=['SAME', 'SAME', 'SAME'],
+                    #         # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                    #         hidden_sizes=[200, 200]
+                    #     )
+                    # elif type(env.spec.action_space) == Discrete:
+                    #     second_policy = CategoricalMLPPolicy(
+                    #         name="policy",
+                    #         env_spec=config["second_env"].spec,
+                    #         # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                    #         hidden_sizes=(400, 300)
+                    #     )
+                    # else:
+                    #     second_policy = GaussianMLPPolicy(
+                    #         name="policy",
+                    #         env_spec=config["second_env"].spec,
+                    #         hidden_sizes=(100, 50, 25)
+                    #     )
 
                 if config["img_input"]:
                     # TODO: right now the linear feature baseline is too computationally expensive to actually use
