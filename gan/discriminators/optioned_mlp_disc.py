@@ -48,12 +48,12 @@ class MLPMixingDiscriminator(Discriminator):
         self.extra_losses = losses
 
     def get_lab_accuracy(self, data, class_labels):
-        data = np.squeeze(data)
+        data = np.squeeze(axis=1, a=data)
         return self.sess.run([self.label_accuracy], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def train(self, data_batch, targets_batch):
-        data_batch = np.squeeze(data_batch)
+        data_batch = np.squeeze(axis=1, a=data_batch)
         cost = self.sess.run([self.optimizer, self.loss], feed_dict={
                                                                     self.train_step : self.actual_train_step,
                                                                     #  self.pos_weighting: self.compute_pos_weight(targets_batch),
@@ -62,7 +62,7 @@ class MLPMixingDiscriminator(Discriminator):
         return cost
 
     def eval(self, data, softmax=True):
-        data = np.squeeze(data)
+        data = np.squeeze(axis=1, a=data)
         logits = self.discrimination_logits
 
         if softmax is True:
@@ -82,27 +82,27 @@ class MLPMixingDiscriminator(Discriminator):
         return log_prob
 
     def get_mse(self, data, class_labels):
-        data = np.squeeze(data)
+        data = np.squeeze(axis=1, a=data)
         return self.sess.run([self.mse], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def get_separate_losses(self, data, class_labels):
-        data = np.squeeze(data)
+        data = np.squeeze(axis=1, a=data)
         return self.sess.run(self.extra_losses, feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})
 
     def get_lab_precision(self, data, class_labels):
-        data = np.squeeze(data)
+        data = np.squeeze(axis=1, a=data)
         return self.sess.run([self.label_precision], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def get_lab_recall(self, data, class_labels):
-        data = np.squeeze(data)
+        data = np.squeeze(axis=1, a=data)
         return self.sess.run([self.label_recall], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
 
     def get_termination_activations(self, data, class_labels):
-        data = np.squeeze(data)
+        data = np.squeeze(axis=1, a=data)
         return self.sess.run([self.termination_softmax_logits], feed_dict={self.nn_input: data,
                                                                self.class_target: class_labels})[0]
     def get_loss_layer(self, pred, target_output):
