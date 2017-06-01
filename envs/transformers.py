@@ -24,7 +24,7 @@ class SimpleNormalizePixelIntensitiesTransformer(BaseTransformer):
     """
     @overrides
     def transform(self, observation):
-        return observation / 255.
+        return np.array(observation).astype(np.float32) / 255.0
 
     @overrides
     def transformed_observation_space(self, wrapped_observation_space):

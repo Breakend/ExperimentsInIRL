@@ -55,6 +55,12 @@ register_custom_envs()
 
 if 'Doom' in args.env:
     gymenv = DoomEnv(args.env, force_reset=True, record_video=False, record_log=False)
+    # import pdb; pdb.set_trace()
+    orig_obs_dim = gymenv.spec.observation_space.low.shape
+    from envs.observation_transform_wrapper import ObservationTransformWrapper
+    from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer, RandomSensorMaskTransformer
+    transformers = [SimpleNormalizePixelIntensitiesTransformer()]#, ResizeImageTransformer(fraction_of_current_size=.35)]
+    transformed_env = ObservationTransformWrapper(gymenv, transformers)
 else:
     gymenv = GymEnv(args.env, force_reset=True, record_video=False, record_log=False)
 
@@ -71,12 +77,21 @@ if args.run_baseline:
     )
 else:
     if type(env.spec.action_space) is Discrete:
-        policy = CategoricalDecomposedPolicy(
-        name="policy",
-        env_spec=env.spec,
-        # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(8, 8)
-        )
+        if 'Doom' in args.env:
+            policy = CategoricalDecomposedPolicy(
+            name="policy",
+            env_spec=env.spec,
+            # The neural network policy should have two hidden layers, each with 32 hidden units.
+            hidden_sizes=(8, 8),
+            conv_filters = [16, 16], conv_filter_sizes = [4, 4], conv_strides = [2,2], conv_pads = ['VALID', 'VALID'], input_shape=orig_obs_dim
+            )
+        else:
+            policy = CategoricalDecomposedPolicy(
+            name="policy",
+            env_spec=env.spec,
+            # The neural network policy should have two hidden layers, each with 32 hidden units.
+            hidden_sizes=(8, 8),
+            )
     else:
         policy = GaussianDecomposedPolicy(
         name="policy",

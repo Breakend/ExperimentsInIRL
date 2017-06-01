@@ -2,7 +2,7 @@ import numpy as np
 
 from sandbox.rocky.tf.core.layers_powered import LayersPowered
 import sandbox.rocky.tf.core.layers as L
-from sandbox.rocky.tf.core.network import MLP
+from sandbox.rocky.tf.core.network import MLP, ConvNetwork
 from sandbox.rocky.tf.spaces.box import Box
 
 from rllab.core.serializable import Serializable
@@ -54,7 +54,8 @@ class GaussianDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable):
             std_parametrization='exp',
             num_options = 4,
             gating_network = None,
-            input_layer = None
+            input_layer = None,
+            conv_filters = None, conv_filter_sizes = None, conv_strides = None, conv_pads = None, input_shape=None
     ):
         """
         :param env_spec:
@@ -85,7 +86,17 @@ class GaussianDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable):
 
             self.num_options = num_options
 
-            input_layer, output_layer = self.make_network((obs_dim,), action_dim, hidden_sizes, hidden_nonlinearity=hidden_nonlinearity, gating_network = gating_network, l_in = input_layer)
+            input_layer, output_layer = self.make_network((obs_dim,),
+                                                          action_dim,
+                                                          hidden_sizes,
+                                                          hidden_nonlinearity=hidden_nonlinearity,
+                                                          gating_network = gating_network,
+                                                          l_in = input_layer,
+                                                          conv_filters=conv_filters,
+                                                          conv_filter_sizes=conv_filter_sizes,
+                                                          conv_strides=conv_strides,
+                                                          conv_pads=conv_pads,
+                                                          input_shape=input_shape)
 
             self._mean_network_output_layer = output_layer
 
@@ -140,38 +151,82 @@ class GaussianDecomposedPolicy(StochasticPolicy, LayersPowered, Serializable):
                 outputs=[mean_var, log_std_var],
             )
 
-    def _make_subnetwork(self, input_layer, dim_output, hidden_sizes, output_nonlinearity=tf.sigmoid, hidden_nonlinearity=tf.nn.tanh, name="pred_network"):
+    def _make_subnetwork(self, input_layer, dim_output, hidden_sizes, output_nonlinearity=tf.sigmoid, hidden_nonlinearity=tf.nn.tanh, name="pred_network",
+                             conv_filters = None, conv_filter_sizes = None, conv_strides = None, conv_pads = None, input_shape = None):
 
-        prob_network = MLP(
-                output_dim=dim_output,
-                hidden_sizes=hidden_sizes,
-                hidden_nonlinearity=hidden_nonlinearity,
-                output_nonlinearity=output_nonlinearity,
-                name=name,
-                input_layer=input_layer
-            )
+        if conv_filters is not None:
+            input_layer = L.reshape(input_layer, ([0],) + input_shape, name="reshape_input")
+            prob_network = ConvNetwork(
+                    input_shape = input_shape,
+                    output_dim=dim_output,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    name=name,
+                    input_layer=input_layer,
+                    conv_filters=conv_filters,
+                    conv_filter_sizes=conv_filter_sizes,
+                    conv_strides=conv_strides,
+                    conv_pads=conv_pads)
+        else:
+            prob_network = MLP(
+                    output_dim=dim_output,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    name=name,
+                    input_layer=input_layer
+                )
 
         return prob_network.output_layer
 
-    def _make_gating_network(self, input_layer, hidden_sizes, apply_softmax=False):
+    def _make_gating_network(self, input_layer, hidden_sizes, apply_softmax=False,
+                         conv_filters = None, conv_filter_sizes = None, conv_strides = None, conv_pads = None, input_shape=None):
         if apply_softmax:
             output_nonlinearity = tf.nn.softmax
         else:
             output_nonlinearity = None
-        return self._make_subnetwork(input_layer, dim_output=self.num_options, hidden_sizes=hidden_sizes, output_nonlinearity=output_nonlinearity, name="gate")
+        return self._make_subnetwork(input_layer,
+                                     dim_output=self.num_options,
+                                     hidden_sizes=hidden_sizes,
+                                     output_nonlinearity=output_nonlinearity,
+                                     name="gate",
+                                     conv_filters=conv_filters,
+                                     conv_filter_sizes=conv_filter_sizes,
+                                     conv_strides=conv_strides,
+                                     conv_pads=conv_pads,
+                                     input_shape=input_shape)
 
-    def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, discriminator_options=[], hidden_nonlinearity=tf.nn.tanh, gating_network=None, l_in = None):
+    def make_network(self, dim_input, dim_output, subnetwork_hidden_sizes, discriminator_options=[], hidden_nonlinearity=tf.nn.tanh, gating_network=None, l_in = None,
+                     conv_filters = None, conv_filter_sizes = None, conv_strides = None, conv_pads = None, input_shape=None):
         if l_in is None:
             l_in = L.InputLayer(shape=(None,) + tuple(dim_input))
 
         if len(discriminator_options) < self.num_options:
             for i in range(len(discriminator_options), self.num_options):
-                subnet = self._make_subnetwork(l_in, dim_output=dim_output, hidden_sizes=subnetwork_hidden_sizes, output_nonlinearity=None, hidden_nonlinearity=hidden_nonlinearity, name="option%d" % i)
+                subnet = self._make_subnetwork(l_in,
+                                               dim_output=dim_output,
+                                               hidden_sizes=subnetwork_hidden_sizes,
+                                               output_nonlinearity=None,
+                                               hidden_nonlinearity=hidden_nonlinearity,
+                                               name="option%d" % i,
+                                               conv_filters=conv_filters,
+                                               conv_filter_sizes=conv_filter_sizes,
+                                               conv_strides=conv_strides,
+                                               conv_pads=conv_pads,
+                                               input_shape=input_shape)
                 discriminator_options.append(subnet)
 
         # only apply softmax if we're doing mixtures, if sparse mixtures or options, need to apply after sparsifying
         if gating_network is None:
-            gating_network = self._make_gating_network(l_in, apply_softmax = True, hidden_sizes=subnetwork_hidden_sizes)
+            gating_network = self._make_gating_network(l_in,
+                                                       apply_softmax = True,
+                                                       hidden_sizes=subnetwork_hidden_sizes,
+                                                       conv_filters=conv_filters,
+                                                       conv_filter_sizes=conv_filter_sizes,
+                                                       conv_strides=conv_strides,
+                                                       conv_pads=conv_pads,
+                                                       input_shape=input_shape)
 
         # combined_options = L.ConcatLayer(discriminator_options, axis=1)
         # combined_options = tf.concat(discriminator_options, axis=1)
