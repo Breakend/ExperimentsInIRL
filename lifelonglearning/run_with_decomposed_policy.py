@@ -19,7 +19,7 @@ from sandbox.rocky.tf.spaces.discrete import Discrete
 from sampling_utils import sample_policy_trajectories
 import pickle
 import tensorflow as tf
-from envs.transfer.register_envs import *
+from envs.transfer.register_envs import register_custom_envs
 import numpy as np
 import argparse
 from policies.categorical_decomposed_policy import CategoricalDecomposedPolicy
@@ -32,6 +32,7 @@ from envs.doom_env import DoomEnv
 
 # stub(globals())
 ext.set_seed(1)
+register_custom_envs()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("env")
@@ -54,7 +55,6 @@ args = parser.parse_args()
 # Need to wrap in a tf environment and force_reset to true
 # see https://github.com/openai/rllab/issues/87#issuecomment-282519288
 
-register_custom_envs()
 
 if 'Doom' in args.env:
     gymenv = DoomEnv(args.env, force_reset=True, record_video=False, record_log=False)
@@ -65,7 +65,7 @@ if 'Doom' in args.env:
     transformers = [SimpleNormalizePixelIntensitiesTransformer()]#, ResizeImageTransformer(fraction_of_current_size=.35)]
     transformed_env = ObservationTransformWrapper(gymenv, transformers)
 else:
-    gymenv = GymEnv(args.env, force_reset=True, record_video=False, record_log=False)
+    gymenv = GymEnv(args.env, force_reset=True, record_video=True, record_log=True)
 
 # gymenv.env.seed(124)
 env = TfEnv(normalize(gymenv, normalize_obs=False))
@@ -141,7 +141,7 @@ algo = TRPO(
     n_itr=iters,
     discount=0.99,
     step_size=0.01,
-    optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+    optimizer=ConjugateGradientOptimizer(reg_coef=0.1, hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
 )
 
 run_experiment_lite(

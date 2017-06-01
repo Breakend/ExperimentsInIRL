@@ -22,8 +22,15 @@ def register_custom_envs():
                          max_episode_steps=1000,
                          reward_threshold=3800.0,
                          kwargs= dict(xml_name='hopper_gravity_one_and_quarter.xml')),
+                "HopperWall-v0" :
+                    dict(path='envs.transfer.modified_hopper:ModifiedHopperEnv',
+                         max_episode_steps=1000,
+                         reward_threshold=3800.0,
+                         kwargs= dict(xml_name='hopper_wall.xml')),
                          }
+
     for key, value in custom_envs.items():
+        print("Registering %s" % key)
         gym.envs.register(
             id=key,
             entry_point=value["path"],

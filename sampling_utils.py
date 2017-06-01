@@ -128,7 +128,7 @@ def process_samples_with_reward_extractor(samples, reward_extractor, concat_time
     print("Time to process samples: %d" % (t1-t0))
     return samples
 
-def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False, num_frames=4, concat_timesteps=True):
+def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speedup=1, get_image_observations=False, num_frames=4, concat_timesteps=True, animated=False):
     """
     Mostly taken from https://github.com/bstadie/third_person_im/blob/master/sandbox/bradly/third_person/algos/cyberpunk_trainer.py#L164
     Generate a rollout for a given policy
@@ -153,8 +153,12 @@ def rollout_policy(agent, env, max_path_length=200, reward_extractor=None, speed
         path_length += 1
         o = next_o
         if get_image_observations:
-            pixel_array = env.render(mode="rgb_array")
-            if pixel_array is None:
+            if not animated:
+                pixel_array = env.render(mode="rgb_array")
+            else:
+                pixel_array = env.render()
+
+            if pixel_array is None and not animated:
                 # Not convinced that behaviour works for all environments, so until
                 # such a time as I'm convinced of this, drop into a debug shell
                 print("Problem! Couldn't get pixels! Dropping into debug shell.")
