@@ -26,7 +26,7 @@ from envs.observation_transform_wrapper import ObservationTransformWrapper
 from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer, RandomSensorMaskTransformer
 from envs.tf_transformers import InceptionTransformer
 from envs.transfer.register_envs import register_custom_envs
-
+import roboschool
 from experiment import *
 import tensorflow as tf
 import pickle
@@ -176,7 +176,7 @@ bad_short_runs_mapping = {"MountainCar-v0" : False, "CartPole-v0": True,
                           "Seaquest-v0": True, "InvertedPendulum-v1":True,
                           "Hopper-v1":True, "Humanoid-v1":True,
                           "HalfCheetah-v1":True, "Ant-v1":True,
-                          "Reacher-v1":False, "Walker2d-v1":True}
+                          "Reacher-v1":False, "Walker2d-v1":True, "RoboschoolHumanoidFlagrun-v0" : True}
 
 if args.env not in bad_short_runs_mapping.keys():
     raise Exception("Env %s not supported. Supported envs: %s" % (args.env, ", ".join(bad_short_runs_mapping.keys())))

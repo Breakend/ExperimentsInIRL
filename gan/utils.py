@@ -27,6 +27,7 @@ def shuffle_to_training_data(expert_data, on_policy_data, num_frames=4, horizon=
     all_classes = []
 
     for rollout in expert_data:
+        rollout = np.array(rollout)
         for time_key in range(len(rollout)):
             data_matrix = np.zeros(shape=(1, num_frames, feature_space))
             # we want the first thing in the sequence to be repeated until we have enough to form a sequence
