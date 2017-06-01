@@ -6,6 +6,9 @@ import tensorflow as tf
 
 
 class LinearFeatureBaseline(Baseline):
+    """
+    TODO: I don't think this actually works
+    """
     def __init__(self, env_spec, reg_coeff=1e-5):
         self._coeffs = None
         self._reg_coeff = reg_coeff

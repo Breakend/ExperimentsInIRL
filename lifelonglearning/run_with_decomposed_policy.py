@@ -3,12 +3,13 @@ from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 import os.path as osp
 from rllab.baselines.zero_baseline import ZeroBaseline
-
+from baselines.gaussian_mlp_baseline import *
 
 from rllab.misc.instrument import stub, run_experiment_lite
 
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
+from sandbox.rocky.tf.policies.categorical_conv_policy import CategoricalConvPolicy
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
@@ -40,7 +41,7 @@ parser.add_argument("--run_baseline", action="store_true")
 parser.add_argument("--use_ec2", action="store_true")
 parser.add_argument("--data_dir", default="./data")
 parser.add_argument("--dont_terminate_machine", action="store_false", help="Whether to terminate your spot instance or not. Be careful.")
-
+parser.add_argument("--batch_size", type=int, default=5000)
 args = parser.parse_args()
 
 # stub(globals())
@@ -70,13 +71,33 @@ else:
 env = TfEnv(normalize(gymenv, normalize_obs=False))
 
 if args.run_baseline:
-    policy = GaussianMLPPolicy(
-    name="policy",
-    env_spec=env.spec,
-    # The neural network policy should have two hidden layers, each with 32 hidden units.
-    hidden_sizes=(100, 50, 25),
-    hidden_nonlinearity=tf.nn.relu,
-    )
+    if type(env.spec.action_space) is Discrete:
+        if 'Doom' in args.env:
+            policy = CategoricalConvPolicy(
+                name="policy",
+                env_spec=env.spec,
+                conv_filters=[16, 16],
+                conv_filter_sizes=[3, 3],
+                conv_strides=[2, 2],
+                conv_pads=['VALID', 'VALID'],
+                # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
+                hidden_sizes=[200, 200]
+            )
+        else:
+            policy = CategoricalMLPPolicy(
+            name="policy",
+            env_spec=env.spec,
+            # The neural network policy should have two hidden layers, each with 32 hidden units.
+            hidden_sizes=(32, 32),
+            )
+    else:
+        policy = GaussianMLPPolicy(
+        name="policy",
+        env_spec=env.spec,
+        # The neural network policy should have two hidden layers, each with 32 hidden units.
+        hidden_sizes=(100, 50, 25),
+        hidden_nonlinearity=tf.nn.relu,
+        )
 else:
     if type(env.spec.action_space) is Discrete:
         if 'Doom' in args.env:
@@ -104,7 +125,7 @@ else:
         )
 
 if "Doom" in args.env:
-    baseline = ZeroBaseline(env_spec=env.spec)
+    baseline = GaussianMLPBaseline(env_spec=env.spec)
 else:
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -115,7 +136,7 @@ algo = TRPO(
     env=env,
     policy=policy,
     baseline=baseline,
-    batch_size=5000, # Mujoco tasks need 20000-50000
+    batch_size=args.batch_size, # Mujoco tasks need 20000-50000
     max_path_length=env.horizon, # And 500
     n_itr=iters,
     discount=0.99,
