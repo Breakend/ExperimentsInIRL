@@ -23,6 +23,8 @@ import numpy as np
 import argparse
 from policies.categorical_decomposed_policy import CategoricalDecomposedPolicy
 from policies.gaussian_decomposed_policy import GaussianDecomposedPolicy
+import roboschool
+
 from rllab.misc import ext
 from envs.doom_env import DoomEnv
 
