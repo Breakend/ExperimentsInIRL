@@ -26,7 +26,10 @@ from envs.observation_transform_wrapper import ObservationTransformWrapper
 from envs.transformers import ResizeImageTransformer, SimpleNormalizePixelIntensitiesTransformer, RandomSensorMaskTransformer
 from envs.tf_transformers import InceptionTransformer
 from envs.transfer.register_envs import register_custom_envs
-import roboschool
+try:
+    import roboschool
+except:
+    print("Roboschool not installed, can't learn those envs")
 from experiment import *
 import tensorflow as tf
 import pickle

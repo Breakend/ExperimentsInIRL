@@ -123,7 +123,7 @@ class Trainer(object):
                 # scipy.stats.ks_2samp(data1, data2)
                 mu, std = norm.fit(np.concatenate([np.array(p['rewards']).reshape(-1) for p in novice_rollouts]))
                 dist = tf.contrib.distributions.Normal(loc=mu, scale=std)
-                kl_divergence = tf.contrib.distributions.kl(dist, prev_cost_dist)
+                kl_divergence = tf.contrib.distributions.kl_divergence(dist, prev_cost_dist)
                 kl = self.sess.run(kl_divergence)
                 print("Cost training reward KL divergence: %f" % kl)
                 cost_t_steps += 1
@@ -147,7 +147,7 @@ class Trainer(object):
         if self.prev_reward_dist:
             if config["use_kl_learning_for_trpo"]:
             # import pdb; pdb.set_trace()
-                kl_divergence = tf.contrib.distributions.kl(dist, self.prev_reward_dist)
+                kl_divergence = tf.contrib.distributions.kl_divergence(dist, self.prev_reward_dist)
                 kl = self.sess.run(kl_divergence)
 
                 logger.record_tabular("RewardDistKLSinceLastCostUpdate",kl)
