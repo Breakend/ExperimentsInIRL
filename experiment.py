@@ -108,7 +108,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
                 env_spec=env.spec,
                 # hidden_nonlinearity=lrelu,
                 # The neural network policy should have two hidden layers, each with 100 hidden units each (see RLGAN paper)
-                hidden_sizes=(100, 50, 25)
+                hidden_sizes=(300, 400)
             )
     else:
         if config["use_shared_gated_policy"]:
@@ -131,7 +131,7 @@ def run_experiment(expert_rollout_pickle_path, trained_policy_pickle_path, env, 
                 env_spec=env.spec,
                 # std_hidden_nonlinearity=lrelu,
                 # hidden_nonlinearity=lrelu,
-                hidden_sizes=(100, 50, 25)
+                hidden_sizes=(300, 400)
             )
 
     if config["img_input"]:

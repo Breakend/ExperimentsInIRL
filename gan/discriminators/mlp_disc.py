@@ -35,7 +35,7 @@ class MLPDiscriminator(Discriminator):
                                                                self.class_target: class_labels})[0]
 
 
-    def make_network(self, dim_input, dim_output, nn_input=None, target=None, hidden_sizes = (100,100)):
+    def make_network(self, dim_input, dim_output, nn_input=None, target=None, hidden_sizes = (50,)):
         """
         An example a network in tf that has both state and image inputs.
         Args:
